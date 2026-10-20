@@ -1,7 +1,7 @@
 name: hourly-paper-trading
+# The competition now runs on the live server (live/, deployed on Render).
+# This hourly GitHub version is kept for manual runs only.
 on:
-  schedule:
-    - cron: "7 * * * *"   # every hour (GitHub may start scheduled runs a few minutes late)
   workflow_dispatch:
     inputs:
       restart_from:
