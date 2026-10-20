@@ -38,7 +38,7 @@ REBAL_BAND = 0.03     # skip trades smaller than 3% of equity x leverage (avoids
 BORROW_RATE = learning.BORROW_RATE
 MAINT_MARGIN = learning.MAINT_MARGIN
 MAX_CHART_POINTS = 2000
-HISTORY_DAYS = 729   # Yahoo serves ~730 days of hourly bars
+HISTORY_DAYS = 720   # Yahoo serves up to 730 days of hourly bars
 
 # profile: (max leverage, target annual volatility or None = always max leverage)
 PROFILES = {

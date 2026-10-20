@@ -91,14 +91,14 @@ def _hourly_bars(df: pd.DataFrame, session_close: str | None) -> pd.DataFrame:
     if session_close:  # the last stock bar of the day is short (15:30-16:00 New York)
         local = end.tz_convert("America/New_York")
         cap = local.normalize() + pd.Timedelta(session_close)
-        end = pd.DatetimeIndex(np.minimum(local, cap)).tz_convert("UTC")
+        end = local.where(local <= cap, cap).tz_convert("UTC")
     df = df.copy()
     df.index = end.tz_convert("UTC").ceil("h").tz_localize(None)
     df = df[df.index <= pd.Timestamp.now("UTC").tz_localize(None)]  # drop the bar that is still forming
     return df.groupby(level=0).agg({"open": "first", "high": "max", "low": "min", "close": "last", "volume": "sum"})
 
 
-def fetch_yahoo_hourly(ticker: str, days: int = 729) -> pd.DataFrame:
+def fetch_yahoo_hourly(ticker: str, days: int = 720) -> pd.DataFrame:
     """Hourly OHLCV from Yahoo (max ~730 days), indexed by the UTC hour each bar closed."""
     import yfinance as yf
     start = (pd.Timestamp.now("UTC") - pd.Timedelta(days=days)).strftime("%Y-%m-%d")
@@ -106,7 +106,7 @@ def fetch_yahoo_hourly(ticker: str, days: int = 729) -> pd.DataFrame:
     if df.empty:
         raise ValueError(f"no hourly data for {ticker}")
     df = df[["Open", "High", "Low", "Close", "Volume"]].rename(columns=str.lower)
-    return _hourly_bars(df, None if ticker.endswith("-USD") else "16:00")
+    return _hourly_bars(df, None if ticker.endswith("-USD") else "16:00:00")
 
 
 def synthetic_hourly(symbol: str, days: int = 729, stock: bool = False) -> pd.DataFrame:
