@@ -40,3 +40,20 @@ python paper.py --reset --start 2026-01-02   # replay from a past date, then con
 
 State lives in `state/` (accounts, equity curve, every trade). Push this repo to GitHub and
 `.github/workflows/trading.yml` runs it automatically every hour and commits the leaderboard and dashboard.
+
+## ⚡ Live server (`live/`)
+
+The real-time version runs as one always-on web service:
+
+- **Market data from Alpaca** (free paper account): crypto plus IEX stock data, pulled every 5 minutes, and live prices every 2 seconds.
+- **The AIs can trade every 5 minutes.** Each one picks its own tempo (5m, 15m, 1h, 4h or daily) and re-learns weekly from its own last 30 days.
+- **The ledger stays in our code**, so up to 10x leverage on crypto still works (Alpaca doesn't allow margin on crypto).
+- **The dashboard at `/` updates live**: prices, balances and ranking change every 2 seconds, and the page reloads after every 5-minute trading step.
+- `/health` shows the status; `/api/state` returns the full data as JSON.
+
+Deploy (Railway, or any Docker host):
+1. Set the variables `ALPACA_API_KEY` and `ALPACA_SECRET_KEY` (paper keys) and `DATA_DIR=/data`.
+2. Mount a persistent volume at `/data`.
+3. Use the `Dockerfile` in this repo.
+
+Offline test: `SYNTHETIC=1 uvicorn live.server:app`

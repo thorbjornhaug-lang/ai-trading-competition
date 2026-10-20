@@ -1,0 +1,8 @@
+.git
+cache
+state
+state_offline
+state_live
+docs_offline
+*.png
+__pycache__

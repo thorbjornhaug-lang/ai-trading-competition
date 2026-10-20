@@ -1,14 +1,14 @@
 """Self-learning layer on top of each AI's base strategy.
 
 Every AI owns a rulebook it rewrites itself:
-- tf:       how often it trades — reads its strategy on 1-hour, 4-hour or daily bars
+- tf:       how often it trades — reads its strategy on 5-minute up to daily bars
 - lev_mult: how much of its allowed leverage it actually uses
 - confirm:  extra bars a signal must hold before it buys (fewer whipsaws)
 - stop:     trailing stop-loss from the peak since entry (None = no stop)
 - bans:     assets it refuses to trade for a while because they cost it money
 
 Every LEARN_EVERY_DAYS each AI replays its own strategy over the last WINDOW_DAYS (a "shadow" run
-with the same sizing, leverage, fees, interest and liquidation rules, hour by hour), pauses assets that
+with the same sizing, leverage, fees, interest and liquidation rules, step by step), pauses assets that
 lost it money, and tests alternative rulebooks. It switches only if the new rules would have done clearly better.
 """
 import itertools
@@ -20,10 +20,11 @@ MIN_SPLIT = 4          # base weight = signal / max(sum of signals, 4)  ->  max 
 STOCK_MAX_LEV = 1.0    # leverage is for crypto only
 BORROW_RATE = 0.08
 MAINT_MARGIN = 0.05
-HOURS_PER_YEAR = 8760
+MINUTES_PER_YEAR = 525600
 
-TIMEFRAMES = {"1h": 1, "4h": 4, "1D": 24}   # bar size in hours
-TF_NAMES = {"1h": "hver time", "4h": "hver 4. time", "1D": "én gang om dagen"}
+TIMEFRAMES = {"5m": 5, "15m": 15, "1h": 60, "4h": 240, "1D": 1440}   # bar size in minutes
+TF_NAMES = {"5m": "hvert 5. minutt", "15m": "hvert 15. minutt", "1h": "hver time",
+            "4h": "hver 4. time", "1D": "én gang om dagen"}
 LEARN_EVERY_DAYS = 7
 WINDOW_DAYS = 120
 BAN_WINDOW_DAYS = 60
@@ -43,10 +44,15 @@ def stamp(ts):
 
 
 class Context:
-    """Numpy views of the market, indexed [hour, asset] on the shared hourly calendar."""
+    """Numpy views of the market, indexed [step, asset] on the shared calendar of step_minutes bars."""
 
-    def __init__(self, tickers, signals, close, low, vol, fresh, is_crypto, fees):
+    def __init__(self, tickers, signals, close, low, vol, fresh, is_crypto, fees, step_minutes=60,
+                 window_days=WINDOW_DAYS):
         self.tickers = list(tickers)
+        self.step_minutes = step_minutes
+        self.window_days = window_days
+        self.tfs = sorted({tf for (_, tf) in signals}, key=TIMEFRAMES.get)
+        self.borrow_per_step = BORROW_RATE * step_minutes / MINUTES_PER_YEAR
         self.sig = {key: s[self.tickers].to_numpy(np.float32) for key, s in signals.items()}
         c = close[self.tickers].to_numpy(float)
         prev = np.vstack([c[:1], c[:-1]])
@@ -60,9 +66,9 @@ class Context:
 
 
 def effective_signal(ctx, ai, i, rules, banned, stopped):
-    """Signal decided at hour i, after the AI's own rules (timeframe, confirmation, bans, stops)."""
+    """Signal decided at step i, after the AI's own rules (timeframe, confirmation, bans, stops)."""
     s = ctx.sig[(ai, rules["tf"])]
-    c = rules["confirm"] * TIMEFRAMES[rules["tf"]]
+    c = rules["confirm"] * TIMEFRAMES[rules["tf"]] // ctx.step_minutes
     sig = s[max(0, i - c):i + 1].min(axis=0).astype(float) if c else s[i].astype(float)
     sig[banned | stopped] = 0.0
     return sig
@@ -82,7 +88,7 @@ def banned_mask(ctx, bans, now):
 
 
 def shadow(ctx, ai, rules, banned, start, end, max_lev, target_vol):
-    """Replay rules over hours [start, end). Returns (score, per-asset P&L as fraction of equity)."""
+    """Replay rules over steps [start, end). Returns (score, per-asset P&L as fraction of equity)."""
     n = len(ctx.tickers)
     w = np.zeros(n)
     peaks = np.full(n, np.nan)
@@ -98,7 +104,7 @@ def shadow(ctx, ai, rules, banned, start, end, max_lev, target_vol):
                 return -10.0, asset_pnl - 1.0 / n
             pnl = w * ctx.ret[i]
             asset_pnl += pnl * eq
-            eq *= 1 + pnl.sum() - BORROW_RATE / HOURS_PER_YEAR * max(gross - 1, 0)
+            eq *= 1 + pnl.sum() - ctx.borrow_per_step * max(gross - 1, 0)
             top = max(top, eq)
             max_dd = max(max_dd, 1 - eq / top)
             if eq <= 0:
@@ -136,8 +142,10 @@ def describe(old, new, max_lev):
 
 
 def learn(ctx, ai, rules, i, now, max_lev, target_vol):
-    """One learning session at hour i (uses data up to hour i-1). Returns (new rules, journal lines, scores)."""
-    start = max(1, i - WINDOW_DAYS * 24)
+    """One learning session at step i (uses data up to step i-1). Returns (new rules, journal lines, scores)."""
+    per_day = 1440 // ctx.step_minutes
+    start = max(1, i - ctx.window_days * per_day)
+    ban_days = min(BAN_WINDOW_DAYS, ctx.window_days)
     notes = []
     bans = {t: until for t, until in rules["bans"].items() if until > now}
     for t in rules["bans"]:
@@ -149,7 +157,7 @@ def learn(ctx, ai, rules, i, now, max_lev, target_vol):
     before, _ = shadow(ctx, ai, current, banned, start, i, max_lev, target_vol)
 
     # learn from assets that lost it money recently
-    _, pnl = shadow(ctx, ai, current, banned, max(1, i - BAN_WINDOW_DAYS * 24), i, max_lev, target_vol)
+    _, pnl = shadow(ctx, ai, current, banned, max(1, i - ban_days * per_day), i, max_lev, target_vol)
     until = stamp(pd.Timestamp(now) + pd.Timedelta(days=BAN_DAYS))
     for k in np.argsort(pnl):
         t = ctx.tickers[k]
@@ -158,14 +166,14 @@ def learn(ctx, ai, rules, i, now, max_lev, target_vol):
         if t not in bans:
             bans[t] = until
             notes.append(f"Tar pause fra {t} i {BAN_DAYS} dager (kostet {-pnl[k]:.1%} av kontoen "
-                         f"de siste {BAN_WINDOW_DAYS} dagene)")
+                         f"de siste {ban_days} dagene)")
     banned = banned_mask(ctx, bans, now)
     current = dict(current, bans=bans)
     base, _ = shadow(ctx, ai, current, banned, start, i, max_lev, target_vol)
 
     # stage 1: pick the tempo; stage 2: tune leverage, confirmation and stop-loss for that tempo
     best, best_score = current, base
-    for tf in TIMEFRAMES:
+    for tf in ctx.tfs:
         cand = dict(current, tf=tf)
         if cand != current:
             score, _ = shadow(ctx, ai, cand, banned, start, i, max_lev, target_vol)
@@ -180,7 +188,7 @@ def learn(ctx, ai, rules, i, now, max_lev, target_vol):
         score, _ = shadow(ctx, ai, cand, banned, start, i, max_lev, target_vol)
         if score > best_score:
             best, best_score = cand, score
-    if best_score < base + MIN_IMPROVEMENT:  # only switch when clearly better
+    if best_score < base + MIN_IMPROVEMENT or best["tf"] not in ctx.tfs:  # only switch when clearly better
         best, best_score = current, base
     notes += describe(current, best, max_lev)
     return best, notes, before, best_score

@@ -38,6 +38,7 @@ REBAL_BAND = 0.03     # skip trades smaller than 3% of equity x leverage (avoids
 BORROW_RATE = learning.BORROW_RATE
 MAINT_MARGIN = learning.MAINT_MARGIN
 MAX_CHART_POINTS = 2000
+HOURLY_TFS = ("1h", "4h", "1D")  # tempos available when running on hourly bars (GitHub Actions)
 HISTORY_DAYS = 720   # Yahoo serves up to 730 days of hourly bars
 
 # profile: (max leverage, target annual volatility or None = always max leverage)
@@ -76,13 +77,13 @@ def load_prices(offline, days=HISTORY_DAYS):
     return dfs
 
 
-def build_signals(dfs, calendar):
+def build_signals(dfs, calendar, tfs=HOURLY_TFS):
     """signals[(ai, tf)] = DataFrame(hour x ticker) of target exposure in [0, 1] from that AI's strategy
     run on tf-sized bars; a bar's signal appears at the hour the bar closes."""
-    bars = {(t, tf): data.resample_bars(df, tf) for t, df in dfs.items() for tf in learning.TIMEFRAMES}
+    bars = {(t, tf): data.resample_bars(df, tf) for t, df in dfs.items() for tf in tfs}
     out = {}
     for name, fn in AIS.items():
-        for tf in learning.TIMEFRAMES:
+        for tf in tfs:
             cols = {t: fn(bars[(t, tf)]).fillna(0).clip(0, 1).reindex(calendar, method="ffill") for t in dfs}
             out[(name, tf)] = pd.DataFrame(cols).fillna(0)
     return out
@@ -106,14 +107,14 @@ class Competition:
         self.leverage_path = os.path.join(folder, "leverage.csv")
         self.trades_path = os.path.join(folder, "trades.csv")
 
-    def reset(self, start):
+    def reset(self, start, step=pd.Timedelta(hours=1)):
         os.makedirs(self.folder, exist_ok=True)
         for p in (self.equity_path, self.leverage_path, self.trades_path):
             if os.path.exists(p):
                 os.remove(p)
         self.state = {
             "start": learning.stamp(start),
-            "last_date": learning.stamp(start - pd.Timedelta(hours=1)),
+            "last_date": learning.stamp(start - step),
             "last_learn": learning.stamp(start - pd.Timedelta(days=learning.LEARN_EVERY_DAYS)),
             "journal": [],
             "accounts": {ai: {"cash": START_CASH, "units": {}, "status": "active", "interest": 0.0, "fees": 0.0,
@@ -151,8 +152,8 @@ class Competition:
                 continue
             units, rules = acct["units"], acct["rules"]
 
-            if acct["cash"] < 0:  # interest on borrowed cash, per hour
-                interest = -acct["cash"] * BORROW_RATE / learning.HOURS_PER_YEAR
+            if acct["cash"] < 0:  # interest on borrowed cash, per step
+                interest = -acct["cash"] * ctx.borrow_per_step
                 acct["cash"] -= interest
                 acct["interest"] += interest
 
@@ -255,7 +256,7 @@ def rules_text(rules, date):
     return ", ".join(parts)
 
 
-def leaderboard(comp, close):
+def leaderboard(comp, close, step_minutes=60):
     eq = pd.read_csv(comp.equity_path, index_col=0, parse_dates=True)
     lev = pd.read_csv(comp.leverage_path, index_col=0, parse_dates=True)
     trades = pd.read_csv(comp.trades_path) if os.path.exists(comp.trades_path) else pd.DataFrame(columns=["ai"])
@@ -273,7 +274,7 @@ def leaderboard(comp, close):
             "Equity $": e.iloc[-1],
             "Return %": 100 * (e.iloc[-1] / START_CASH - 1),
             "Max DD %": 100 * (e / e.cummax() - 1).min(),
-            "Sharpe": r.mean() / r.std() * np.sqrt(learning.HOURS_PER_YEAR) if len(r) > 48 and r.std() > 0 else np.nan,
+            "Sharpe": r.mean() / r.std() * np.sqrt(learning.MINUTES_PER_YEAR / step_minutes) if len(r) > 48 and r.std() > 0 else np.nan,
             "Giring nå": lev[ai].iloc[-1],
             "Snitt giring": active_lev.mean() if len(active_lev) else 0.0,
             "Trades": int(((trades.ai == ai) & (trades.side != "LIQUIDATED")).sum()),
@@ -315,7 +316,7 @@ def write_markdown(lb, eq, bench, comp, path):
         f.write(text)
 
 
-def write_dashboard(lb, eq, lev, trades, bench, comp, close, path, demo):
+def build_payload(lb, eq, lev, trades, bench, comp, close, demo):
     last_px = close.loc[eq.index[-1]]
     holdings = {}
     for ai, acct in comp.state["accounts"].items():
@@ -324,9 +325,9 @@ def write_dashboard(lb, eq, lev, trades, bench, comp, close, path, demo):
     accounts = {ai: {k: round(v, 2) if isinstance(v, float) else v for k, v in acct.items()
                      if k in ("cash", "status", "interest", "fees")}
                 for ai, acct in comp.state["accounts"].items()}
-    step = max(1, -(-len(eq) // MAX_CHART_POINTS))  # thin the hourly series for the charts
+    step = max(1, -(-len(eq) // MAX_CHART_POINTS))  # thin long series for the charts
     keep = sorted(set(range(len(eq) - 1, -1, -step)))
-    payload = {
+    return {
         "demo": demo,
         "start": comp.state["start"],
         "updated": learning.stamp(eq.index[-1]),
@@ -341,16 +342,26 @@ def write_dashboard(lb, eq, lev, trades, bench, comp, close, path, demo):
         "tfNames": learning.TF_NAMES,
         "leaderboard": json.loads(lb.to_json(orient="records")),
         "holdings": holdings,
+        "positions": {ai: {"cash": acct["cash"], "units": acct["units"]} for ai, acct in comp.state["accounts"].items()},
+        "stepPrices": {t: float(v) for t, v in last_px.items()},
         "accounts": accounts,
         "trades": trades.astype({"date": str}).fillna("").values.tolist() if len(trades) else [],
         "journal": comp.state["journal"],
         "rules": {ai: acct["rules"] for ai, acct in comp.state["accounts"].items()},
         "tradeCols": list(trades.columns),
     }
+
+
+def render_dashboard(payload, live=False):
     root = os.path.dirname(os.path.abspath(__file__))
     with open(os.path.join(root, "dashboard_template.html")) as f:
         html = f.read()
-    html = html.replace("/*__DATA__*/null", json.dumps(payload, separators=(",", ":"), ensure_ascii=False))
+    html = html.replace("/*__LIVE__*/false", "true" if live else "false")
+    return html.replace("/*__DATA__*/null", json.dumps(payload, separators=(",", ":"), ensure_ascii=False))
+
+
+def write_dashboard(lb, eq, lev, trades, bench, comp, close, path, demo):
+    html = render_dashboard(build_payload(lb, eq, lev, trades, bench, comp, close, demo))
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w") as f:
         f.write(html)

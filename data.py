@@ -135,14 +135,13 @@ def synthetic_hourly(symbol: str, days: int = 729, stock: bool = False) -> pd.Da
 
 
 def resample_bars(df: pd.DataFrame, rule: str) -> pd.DataFrame:
-    """Aggregate close-labelled hourly bars into 4h / daily bars labelled at their scheduled close,
-    so a bar's signal only exists once the whole bar is finished."""
-    if rule == "1h":
-        return df
-    key = df.index.floor(rule) if rule != "1D" else df.index.floor("D")
-    # an hourly bar labelled exactly on a boundary belongs to the bar that ends there
-    on_edge = df.index == key
-    key = key.where(~on_edge, key - pd.Timedelta(rule if rule != "1D" else "1D"))
+    """Aggregate close-labelled bars into larger bars ('15min', '1h', '4h', '1D') labelled at their
+    scheduled close, so a bar's signal only exists once the whole bar is finished."""
+    step = pd.Timedelta(rule)
+    if len(df) > 1 and (df.index[1:] - df.index[:-1]).min() >= step:
+        return df  # already at (or coarser than) this size
+    key = df.index.floor(rule)
+    key = key.where(df.index != key, key - step)  # a bar closing exactly on a boundary belongs to the bar ending there
     out = df.groupby(key).agg({"open": "first", "high": "max", "low": "min", "close": "last", "volume": "sum"})
-    out.index = out.index + pd.Timedelta(rule if rule != "1D" else "1D")
+    out.index = out.index + step
     return out
