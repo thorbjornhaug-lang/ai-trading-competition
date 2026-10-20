@@ -1,216 +1,349 @@
 {
  "start": "2026-10-20",
  "last_date": "2026-10-20",
+ "last_learn": "2026-10-20",
+ "journal": [],
  "accounts": {
   "ai01_sma_cross": {
-   "cash": -527.0132041013385,
+   "cash": 124.8125,
    "units": {
-    "SPY": 0.2224071043898106,
-    "QQQ": 0.23795944205349165,
-    "NVDA": 0.7882567581308763,
-    "AAPL": 0.501960716935343,
-    "MSFT": 0.3218392719575539,
-    "TSLA": 0.4573931177921905
+    "SPY": 0.08122262900517191,
+    "QQQ": 0.08684897827774744,
+    "NVDA": 0.28781948771223,
+    "AAPL": 0.18346296377251453,
+    "MSFT": 0.11758000147893595,
+    "TSLA": 0.16714804705707217
    },
    "status": "active",
    "interest": 0.0,
-   "fees": 0.5132499770621382
+   "fees": 0.1875,
+   "rules": {
+    "lev_mult": 1.0,
+    "confirm": 0,
+    "stop": null,
+    "bans": {}
+   },
+   "peak": {},
+   "stopped": []
   },
   "ai02_ema_cross": {
-   "cash": -998.5022466300551,
+   "cash": -0.2500000000000284,
    "units": {
-    "SPY": 0.3899978624384738,
-    "QQQ": 0.4172693763651434,
-    "AAPL": 0.8802039268033218,
-    "MSFT": 0.5643552999647394,
-    "TSLA": 0.7960468483128121
+    "SPY": 0.12995620640827507,
+    "QQQ": 0.13895836524439592,
+    "AAPL": 0.29354074203602326,
+    "MSFT": 0.18812800236629754,
+    "TSLA": 0.26743687529131543
    },
    "status": "active",
    "interest": 0.0,
-   "fees": 0.7488766849725412
+   "fees": 0.25,
+   "rules": {
+    "lev_mult": 1.0,
+    "confirm": 0,
+    "stop": null,
+    "bans": {}
+   },
+   "peak": {},
+   "stopped": []
   },
   "ai03_macd": {
-   "cash": -750.625,
-   "units": {
-    "AAPL": 3.667516361680507
-   },
+   "cash": 500.0,
+   "units": {},
    "status": "active",
    "interest": 0.0,
-   "fees": 0.625
+   "fees": 0.0,
+   "rules": {
+    "lev_mult": 1.0,
+    "confirm": 0,
+    "stop": null,
+    "bans": {}
+   },
+   "peak": {},
+   "stopped": []
   },
   "ai04_rsi_reversion": {
    "cash": 500.0,
    "units": {},
    "status": "active",
    "interest": 0.0,
-   "fees": 0.0
+   "fees": 0.0,
+   "rules": {
+    "lev_mult": 1.0,
+    "confirm": 0,
+    "stop": null,
+    "bans": {}
+   },
+   "peak": {},
+   "stopped": []
   },
   "ai05_bollinger_reversion": {
    "cash": 299.9,
    "units": {
-    "QQQ": 0.13908979212171443,
-    "NVDA": 0.4607443507213894
+    "QQQ": 0.13895836524439592,
+    "NVDA": 0.46051118033956795
    },
    "status": "active",
    "interest": 0.0,
-   "fees": 0.1
+   "fees": 0.1,
+   "rules": {
+    "lev_mult": 1.0,
+    "confirm": 0,
+    "stop": null,
+    "bans": {}
+   },
+   "peak": {},
+   "stopped": []
   },
   "ai06_bollinger_breakout": {
-   "cash": -750.625,
-   "units": {
-    "MSFT": 2.351480416519747
-   },
+   "cash": 500.0,
+   "units": {},
    "status": "active",
    "interest": 0.0,
-   "fees": 0.625
+   "fees": 0.0,
+   "rules": {
+    "lev_mult": 1.0,
+    "confirm": 0,
+    "stop": null,
+    "bans": {}
+   },
+   "peak": {},
+   "stopped": []
   },
   "ai07_donchian_turtle": {
-   "cash": -250.375,
+   "cash": 249.875,
    "units": {
-    "AAPL": 1.100254908504152,
-    "MSFT": 0.7054441249559241
+    "AAPL": 0.36692592754502906,
+    "MSFT": 0.2351600029578719
    },
    "status": "active",
    "interest": 0.0,
-   "fees": 0.375
+   "fees": 0.125,
+   "rules": {
+    "lev_mult": 1.0,
+    "confirm": 0,
+    "stop": null,
+    "bans": {}
+   },
+   "peak": {},
+   "stopped": []
   },
   "ai08_tsmom": {
-   "cash": -943.0418128807114,
-   "units": {
-    "SPY": 0.37500131429806255,
-    "QQQ": 0.40122415947330353,
-    "NVDA": 1.329082185186487,
-    "AAPL": 0.8463575347252948,
-    "MSFT": 0.5426542030117975
-   },
+   "cash": 500.0,
+   "units": {},
    "status": "active",
    "interest": 0.0,
-   "fees": 0.721160326277217
+   "fees": 0.0,
+   "rules": {
+    "lev_mult": 1.0,
+    "confirm": 0,
+    "stop": null,
+    "bans": {}
+   },
+   "peak": {},
+   "stopped": []
   },
   "ai09_dual_momentum": {
    "cash": 124.8125,
    "units": {
-    "QQQ": 0.17386224015214305,
-    "AAPL": 0.3667516361680507,
-    "MSFT": 0.2351480416519747
+    "QQQ": 0.1736979565554949,
+    "AAPL": 0.36692592754502906,
+    "MSFT": 0.2351600029578719
    },
    "status": "active",
    "interest": 0.0,
-   "fees": 0.1875
+   "fees": 0.1875,
+   "rules": {
+    "lev_mult": 1.0,
+    "confirm": 0,
+    "stop": null,
+    "bans": {}
+   },
+   "peak": {},
+   "stopped": []
   },
   "ai10_vol_target_trend": {
    "cash": 210.36159961133762,
    "units": {
-    "SPY": 0.07526793738575852,
-    "QQQ": 0.08053122418895539,
-    "NVDA": 0.26676513089666376,
-    "AAPL": 0.16987563376653894,
-    "MSFT": 0.1089181851292026
+    "SPY": 0.07524299399234706,
+    "QQQ": 0.08045512969517306,
+    "NVDA": 0.26663012820519194,
+    "AAPL": 0.16995636376254822,
+    "MSFT": 0.10892372548463548
    },
    "status": "active",
    "interest": 0.0,
-   "fees": 0.1447468267809407
+   "fees": 0.1447468267809407,
+   "rules": {
+    "lev_mult": 1.0,
+    "confirm": 0,
+    "stop": null,
+    "bans": {}
+   },
+   "peak": {},
+   "stopped": []
   },
   "ai11_keltner": {
-   "cash": -750.625,
-   "units": {
-    "MSFT": 2.351480416519747
-   },
+   "cash": 500.0,
+   "units": {},
    "status": "active",
    "interest": 0.0,
-   "fees": 0.625
+   "fees": 0.0,
+   "rules": {
+    "lev_mult": 1.0,
+    "confirm": 0,
+    "stop": null,
+    "bans": {}
+   },
+   "peak": {},
+   "stopped": []
   },
   "ai12_stochastic": {
-   "cash": 105.4811204665341,
+   "cash": 299.9,
    "units": {
-    "QQQ": 0.2742306293973087,
-    "NVDA": 0.9084075212292694
+    "QQQ": 0.13895836524439592,
+    "NVDA": 0.46051118033956795
    },
    "status": "active",
    "interest": 0.0,
-   "fees": 0.19716085933706443
+   "fees": 0.1,
+   "rules": {
+    "lev_mult": 1.0,
+    "confirm": 0,
+    "stop": null,
+    "bans": {}
+   },
+   "peak": {},
+   "stopped": []
   },
   "ai13_zscore": {
    "cash": 500.0,
    "units": {},
    "status": "active",
    "interest": 0.0,
-   "fees": 0.0
+   "fees": 0.0,
+   "rules": {
+    "lev_mult": 1.0,
+    "confirm": 0,
+    "stop": null,
+    "bans": {}
+   },
+   "peak": {},
+   "stopped": []
   },
   "ai14_adx_trend": {
-   "cash": -750.625,
-   "units": {
-    "MSFT": 2.351480416519747
-   },
+   "cash": 500.0,
+   "units": {},
    "status": "active",
    "interest": 0.0,
-   "fees": 0.625
+   "fees": 0.0,
+   "rules": {
+    "lev_mult": 1.0,
+    "confirm": 0,
+    "stop": null,
+    "bans": {}
+   },
+   "peak": {},
+   "stopped": []
   },
   "ai15_supertrend": {
-   "cash": -3502.0,
-   "units": {
-    "SPY": 1.2999928747949123,
-    "AAPL": 2.9340130893444054,
-    "MSFT": 1.8811843332157976,
-    "TSLA": 2.6735107933778717
-   },
+   "cash": 500.0,
+   "units": {},
    "status": "active",
    "interest": 0.0,
-   "fees": 2.0
+   "fees": 0.0,
+   "rules": {
+    "lev_mult": 1.0,
+    "confirm": 0,
+    "stop": null,
+    "bans": {}
+   },
+   "peak": {},
+   "stopped": []
   },
   "ai16_ichimoku": {
    "cash": 0.0,
    "units": {
-    "SPY": 0.12999928747949124,
-    "QQQ": 0.13908979212171443,
-    "AAPL": 0.29340130893444055,
-    "MSFT": 0.18811843332157976,
-    "TSLA": 0.2666830356612809
+    "SPY": 0.12995620640827507,
+    "QQQ": 0.13895836524439592,
+    "AAPL": 0.29354074203602326,
+    "MSFT": 0.18812800236629754,
+    "TSLA": 0.26676861723211664
    },
    "status": "active",
    "interest": 0.0,
-   "fees": 0.24987506246876562
+   "fees": 0.24987506246876562,
+   "rules": {
+    "lev_mult": 1.0,
+    "confirm": 0,
+    "stop": null,
+    "bans": {}
+   },
+   "peak": {},
+   "stopped": []
   },
   "ai17_obv_breakout": {
-   "cash": -250.375,
+   "cash": 249.875,
    "units": {
-    "AAPL": 1.100254908504152,
-    "MSFT": 0.7054441249559241
+    "AAPL": 0.36692592754502906,
+    "MSFT": 0.2351600029578719
    },
    "status": "active",
    "interest": 0.0,
-   "fees": 0.375
+   "fees": 0.125,
+   "rules": {
+    "lev_mult": 1.0,
+    "confirm": 0,
+    "stop": null,
+    "bans": {}
+   },
+   "peak": {},
+   "stopped": []
   },
   "ai18_vol_breakout": {
-   "cash": -3251.875,
-   "units": {
-    "NVDA": 5.759304384017368,
-    "AAPL": 3.667516361680507,
-    "TSLA": 3.3418884917223397
-   },
+   "cash": 500.0,
+   "units": {},
    "status": "active",
    "interest": 0.0,
-   "fees": 1.875
+   "fees": 0.0,
+   "rules": {
+    "lev_mult": 1.0,
+    "confirm": 0,
+    "stop": null,
+    "bans": {}
+   },
+   "peak": {},
+   "stopped": []
   },
   "ai19_ml_ridge": {
-   "cash": -3132.0031091492865,
-   "units": {
-    "MSFT": 0.31459313299447716,
-    "AAPL": 0.8540205301303337,
-    "SPY": 0.873440099391451,
-    "QQQ": 1.7386224015214304,
-    "NVDA": 5.759304384017368
-   },
+   "cash": 500.0,
+   "units": {},
    "status": "active",
    "interest": 0.0,
-   "fees": 1.8150940075708577
+   "fees": 0.0,
+   "rules": {
+    "lev_mult": 1.0,
+    "confirm": 0,
+    "stop": null,
+    "bans": {}
+   },
+   "peak": {},
+   "stopped": []
   },
   "ai20_kalman_trend": {
    "cash": 500.0,
    "units": {},
    "status": "active",
    "interest": 0.0,
-   "fees": 0.0
+   "fees": 0.0,
+   "rules": {
+    "lev_mult": 1.0,
+    "confirm": 0,
+    "stop": null,
+    "bans": {}
+   },
+   "peak": {},
+   "stopped": []
   }
  }
 }
