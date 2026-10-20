@@ -10,6 +10,7 @@ import os
 import threading
 import time
 import traceback
+from html import escape as html_escape
 
 import pandas as pd
 from fastapi import FastAPI
@@ -26,9 +27,15 @@ log = logging.getLogger("server")
 PRICE_EVERY = 2          # seconds between live price polls
 STEP_DELAY = 20          # seconds after a 5-minute boundary before pulling the new bar
 
-feed = SyntheticFeed(paper.UNIVERSE) if os.environ.get("SYNTHETIC") else AlpacaFeed(paper.UNIVERSE)
-engine = LiveEngine(feed, os.environ.get("DATA_DIR", os.path.join(os.path.dirname(__file__), "..", "state_live")))
 status = {"started": time.time(), "last_step": None, "last_error": None, "prices_at": None}
+if os.environ.get("SYNTHETIC"):
+    feed = SyntheticFeed(paper.UNIVERSE)
+elif os.environ.get("ALPACA_API_KEY") and os.environ.get("ALPACA_SECRET_KEY"):
+    feed = AlpacaFeed(paper.UNIVERSE)
+else:
+    feed = None
+    status["last_error"] = "ALPACA_API_KEY / ALPACA_SECRET_KEY mangler i Environment-innstillingene."
+engine = LiveEngine(feed, os.environ.get("DATA_DIR", os.path.join(os.path.dirname(__file__), "..", "state_live")))
 live = {"prices": {}, "t": None}
 
 
@@ -62,6 +69,9 @@ app = FastAPI(title="AI Trading-konkurranse")
 
 @app.on_event("startup")
 def start_threads():
+    if feed is None:
+        log.error(status["last_error"])
+        return
     threading.Thread(target=trading_loop, daemon=True).start()
     threading.Thread(target=price_loop, daemon=True).start()
 
@@ -72,9 +82,11 @@ def dashboard():
         html = engine.html
     if html:
         return html
+    error = status["last_error"]
+    detail = f"<h3>Feil</h3><pre style='white-space:pre-wrap'>{html_escape(error)}</pre>" if error else ""
     return HTMLResponse("<meta http-equiv='refresh' content='10'><body style='font-family:sans-serif;padding:24px'>"
                         "<h2>Starter opp…</h2><p>Henter kurshistorikk og lar AI-ene velge regler. "
-                        "Siden laster seg selv på nytt.</p></body>", status_code=503)
+                        f"Siden laster seg selv på nytt.</p>{detail}</body>", status_code=503 if error else 200)
 
 
 @app.get("/api/state")
