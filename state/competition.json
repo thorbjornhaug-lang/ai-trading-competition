@@ -1,26 +1,238 @@
 {
- "start": "2026-10-20",
- "last_date": "2026-10-20",
- "last_learn": "2026-10-20",
- "journal": [],
+ "start": "2026-10-20 16:00",
+ "last_date": "2026-10-20 16:00",
+ "last_learn": "2026-10-20 16:00",
+ "journal": [
+  {
+   "date": "2026-10-20 16:00",
+   "ai": "ai01_sma_cross",
+   "changes": [
+    "Bytter tempo: handler n\u00e5 hver 4. time (f\u00f8r \u00e9n gang om dagen)",
+    "\u00d8ker giringen: bruker n\u00e5 150% av giringen sin (f\u00f8r 100%), maks 3.0x p\u00e5 krypto",
+    "Ny stop-loss: selger hvis kursen faller 15% fra toppen"
+   ],
+   "score_before": -0.023,
+   "score_after": 0.133
+  },
+  {
+   "date": "2026-10-20 16:00",
+   "ai": "ai02_ema_cross",
+   "changes": [
+    "\u00d8ker giringen: bruker n\u00e5 150% av giringen sin (f\u00f8r 100%), maks 3.0x p\u00e5 krypto",
+    "Ny stop-loss: selger hvis kursen faller 8% fra toppen"
+   ],
+   "score_before": 0.07,
+   "score_after": 0.191
+  },
+  {
+   "date": "2026-10-20 16:00",
+   "ai": "ai03_macd",
+   "changes": [
+    "Ny stop-loss: selger hvis kursen faller 15% fra toppen"
+   ],
+   "score_before": 0.127,
+   "score_after": 0.154
+  },
+  {
+   "date": "2026-10-20 16:00",
+   "ai": "ai04_rsi_reversion",
+   "changes": [
+    "Bytter tempo: handler n\u00e5 hver 4. time (f\u00f8r \u00e9n gang om dagen)",
+    "Venter n\u00e5 2 ekstra candles p\u00e5 bekreftet signal f\u00f8r kj\u00f8p"
+   ],
+   "score_before": -0.066,
+   "score_after": 0.044
+  },
+  {
+   "date": "2026-10-20 16:00",
+   "ai": "ai05_bollinger_reversion",
+   "changes": [
+    "Bytter tempo: handler n\u00e5 hver 4. time (f\u00f8r \u00e9n gang om dagen)",
+    "Ny stop-loss: selger hvis kursen faller 15% fra toppen"
+   ],
+   "score_before": 0.048,
+   "score_after": 0.091
+  },
+  {
+   "date": "2026-10-20 16:00",
+   "ai": "ai06_bollinger_breakout",
+   "changes": [
+    "Tar pause fra XRP-USD i 28 dager (kostet 19.2% av kontoen de siste 60 dagene)",
+    "Tar pause fra BTC-USD i 28 dager (kostet 8.9% av kontoen de siste 60 dagene)",
+    "Bytter tempo: handler n\u00e5 hver 4. time (f\u00f8r \u00e9n gang om dagen)",
+    "Venter n\u00e5 2 ekstra candles p\u00e5 bekreftet signal f\u00f8r kj\u00f8p"
+   ],
+   "score_before": -0.331,
+   "score_after": 0.602
+  },
+  {
+   "date": "2026-10-20 16:00",
+   "ai": "ai07_donchian_turtle",
+   "changes": [
+    "Bytter tempo: handler n\u00e5 hver time (f\u00f8r \u00e9n gang om dagen)",
+    "\u00d8ker giringen: bruker n\u00e5 150% av giringen sin (f\u00f8r 100%), maks 3.0x p\u00e5 krypto"
+   ],
+   "score_before": -0.001,
+   "score_after": 0.14
+  },
+  {
+   "date": "2026-10-20 16:00",
+   "ai": "ai08_tsmom",
+   "changes": [
+    "Bytter tempo: handler n\u00e5 hver 4. time (f\u00f8r \u00e9n gang om dagen)",
+    "\u00d8ker giringen: bruker n\u00e5 150% av giringen sin (f\u00f8r 100%), maks 10.0x p\u00e5 krypto",
+    "Venter n\u00e5 2 ekstra candles p\u00e5 bekreftet signal f\u00f8r kj\u00f8p",
+    "Ny stop-loss: selger hvis kursen faller 15% fra toppen"
+   ],
+   "score_before": -0.134,
+   "score_after": 0.187
+  },
+  {
+   "date": "2026-10-20 16:00",
+   "ai": "ai09_dual_momentum",
+   "changes": [
+    "Investerer n\u00e5 25% av det signalene sier (f\u00f8r 100%)"
+   ],
+   "score_before": -0.084,
+   "score_after": -0.02
+  },
+  {
+   "date": "2026-10-20 16:00",
+   "ai": "ai11_keltner",
+   "changes": [
+    "Tar pause fra NVDA i 28 dager (kostet 10.1% av kontoen de siste 60 dagene)",
+    "Tar pause fra MSFT i 28 dager (kostet 10.0% av kontoen de siste 60 dagene)",
+    "Tar pause fra SPY i 28 dager (kostet 10.0% av kontoen de siste 60 dagene)",
+    "Kutter giringen: bruker n\u00e5 25% av giringen sin (f\u00f8r 100%), maks 2.5x p\u00e5 krypto",
+    "Ny stop-loss: selger hvis kursen faller 8% fra toppen"
+   ],
+   "score_before": -10.0,
+   "score_after": 0.071
+  },
+  {
+   "date": "2026-10-20 16:00",
+   "ai": "ai12_stochastic",
+   "changes": [
+    "Bytter tempo: handler n\u00e5 hver 4. time (f\u00f8r \u00e9n gang om dagen)",
+    "\u00d8ker giringen: bruker n\u00e5 150% av giringen sin (f\u00f8r 100%), maks 3.0x p\u00e5 krypto",
+    "Venter n\u00e5 2 ekstra candles p\u00e5 bekreftet signal f\u00f8r kj\u00f8p"
+   ],
+   "score_before": 0.073,
+   "score_after": 0.262
+  },
+  {
+   "date": "2026-10-20 16:00",
+   "ai": "ai13_zscore",
+   "changes": [
+    "Kutter giringen: bruker n\u00e5 50% av giringen sin (f\u00f8r 100%), maks 5.0x p\u00e5 krypto",
+    "Venter n\u00e5 2 ekstra candles p\u00e5 bekreftet signal f\u00f8r kj\u00f8p"
+   ],
+   "score_before": -0.009,
+   "score_after": 0.024
+  },
+  {
+   "date": "2026-10-20 16:00",
+   "ai": "ai14_adx_trend",
+   "changes": [
+    "\u00d8ker giringen: bruker n\u00e5 150% av giringen sin (f\u00f8r 100%), maks 10.0x p\u00e5 krypto",
+    "Ny stop-loss: selger hvis kursen faller 8% fra toppen"
+   ],
+   "score_before": 0.025,
+   "score_after": 0.361
+  },
+  {
+   "date": "2026-10-20 16:00",
+   "ai": "ai15_supertrend",
+   "changes": [
+    "Tar pause fra XRP-USD i 28 dager (kostet 13.8% av kontoen de siste 60 dagene)",
+    "Ny stop-loss: selger hvis kursen faller 15% fra toppen"
+   ],
+   "score_before": 0.332,
+   "score_after": 0.466
+  },
+  {
+   "date": "2026-10-20 16:00",
+   "ai": "ai16_ichimoku",
+   "changes": [
+    "Bytter tempo: handler n\u00e5 hver 4. time (f\u00f8r \u00e9n gang om dagen)",
+    "Venter n\u00e5 2 ekstra candles p\u00e5 bekreftet signal f\u00f8r kj\u00f8p",
+    "Ny stop-loss: selger hvis kursen faller 8% fra toppen"
+   ],
+   "score_before": -0.052,
+   "score_after": 0.031
+  },
+  {
+   "date": "2026-10-20 16:00",
+   "ai": "ai17_obv_breakout",
+   "changes": [
+    "Bytter tempo: handler n\u00e5 hver time (f\u00f8r \u00e9n gang om dagen)",
+    "\u00d8ker giringen: bruker n\u00e5 150% av giringen sin (f\u00f8r 100%), maks 3.0x p\u00e5 krypto",
+    "Venter n\u00e5 2 ekstra candles p\u00e5 bekreftet signal f\u00f8r kj\u00f8p",
+    "Ny stop-loss: selger hvis kursen faller 8% fra toppen"
+   ],
+   "score_before": -0.072,
+   "score_after": 0.195
+  },
+  {
+   "date": "2026-10-20 16:00",
+   "ai": "ai18_vol_breakout",
+   "changes": [
+    "Tar pause fra AAPL i 28 dager (kostet 10.1% av kontoen de siste 60 dagene)",
+    "Tar pause fra NVDA i 28 dager (kostet 10.0% av kontoen de siste 60 dagene)",
+    "Tar pause fra SPY i 28 dager (kostet 10.0% av kontoen de siste 60 dagene)",
+    "Bytter tempo: handler n\u00e5 hver time (f\u00f8r \u00e9n gang om dagen)",
+    "Kutter giringen: bruker n\u00e5 25% av giringen sin (f\u00f8r 100%), maks 2.5x p\u00e5 krypto",
+    "Venter n\u00e5 2 ekstra candles p\u00e5 bekreftet signal f\u00f8r kj\u00f8p",
+    "Ny stop-loss: selger hvis kursen faller 8% fra toppen"
+   ],
+   "score_before": -10.0,
+   "score_after": -0.648
+  },
+  {
+   "date": "2026-10-20 16:00",
+   "ai": "ai19_ml_ridge",
+   "changes": [
+    "Tar pause fra ETH-USD i 28 dager (kostet 10.7% av kontoen de siste 60 dagene)",
+    "Kutter giringen: bruker n\u00e5 25% av giringen sin (f\u00f8r 100%), maks 2.5x p\u00e5 krypto",
+    "Venter n\u00e5 2 ekstra candles p\u00e5 bekreftet signal f\u00f8r kj\u00f8p",
+    "Ny stop-loss: selger hvis kursen faller 15% fra toppen"
+   ],
+   "score_before": -0.351,
+   "score_after": -0.03
+  },
+  {
+   "date": "2026-10-20 16:00",
+   "ai": "ai20_kalman_trend",
+   "changes": [
+    "Tar pause fra AAPL i 28 dager (kostet 10.0% av kontoen de siste 60 dagene)",
+    "Tar pause fra NVDA i 28 dager (kostet 10.0% av kontoen de siste 60 dagene)",
+    "Tar pause fra QQQ i 28 dager (kostet 10.0% av kontoen de siste 60 dagene)",
+    "Kutter giringen: bruker n\u00e5 50% av giringen sin (f\u00f8r 100%), maks 5.0x p\u00e5 krypto",
+    "Ny stop-loss: selger hvis kursen faller 8% fra toppen"
+   ],
+   "score_before": -10.0,
+   "score_after": 0.415
+  }
+ ],
  "accounts": {
   "ai01_sma_cross": {
-   "cash": 124.8125,
+   "cash": -0.25,
    "units": {
-    "SPY": 0.08122262900517191,
-    "QQQ": 0.08684897827774744,
-    "NVDA": 0.28781948771223,
-    "AAPL": 0.18346296377251453,
-    "MSFT": 0.11758000147893595,
-    "TSLA": 0.16714804705707217
+    "SPY": 0.10832921544787306,
+    "QQQ": 0.11588927063123974,
+    "NVDA": 0.3843877120651687,
+    "AAPL": 0.24483160833446005,
+    "MSFT": 0.15690600962275136,
+    "TSLA": 0.22260213856744002
    },
    "status": "active",
    "interest": 0.0,
-   "fees": 0.1875,
+   "fees": 0.24999999999999997,
    "rules": {
-    "lev_mult": 1.0,
+    "tf": "4h",
+    "lev_mult": 1.5,
     "confirm": 0,
-    "stop": null,
+    "stop": 0.15,
     "bans": {}
    },
    "peak": {},
@@ -29,19 +241,20 @@
   "ai02_ema_cross": {
    "cash": -0.2500000000000284,
    "units": {
-    "SPY": 0.12995620640827507,
-    "QQQ": 0.13895836524439592,
-    "AAPL": 0.29354074203602326,
-    "MSFT": 0.18812800236629754,
-    "TSLA": 0.26743687529131543
+    "SPY": 0.1299950585374477,
+    "QQQ": 0.1390671247574877,
+    "AAPL": 0.29379793000135207,
+    "MSFT": 0.18828721154730166,
+    "TSLA": 0.267122566280928
    },
    "status": "active",
    "interest": 0.0,
    "fees": 0.25,
    "rules": {
-    "lev_mult": 1.0,
+    "tf": "1D",
+    "lev_mult": 1.5,
     "confirm": 0,
-    "stop": null,
+    "stop": 0.08,
     "bans": {}
    },
    "peak": {},
@@ -54,23 +267,30 @@
    "interest": 0.0,
    "fees": 0.0,
    "rules": {
+    "tf": "1D",
     "lev_mult": 1.0,
     "confirm": 0,
-    "stop": null,
+    "stop": 0.15,
     "bans": {}
    },
    "peak": {},
    "stopped": []
   },
   "ai04_rsi_reversion": {
-   "cash": 500.0,
-   "units": {},
+   "cash": 0.0,
+   "units": {
+    "ETH-USD": 0.051256818182955806,
+    "SOL-USD": 1.1818096243477019,
+    "XRP-USD": 94.63245019724721,
+    "QQQ": 0.17322579133335236
+   },
    "status": "active",
    "interest": 0.0,
-   "fees": 0.0,
+   "fees": 0.43728135932033985,
    "rules": {
+    "tf": "4h",
     "lev_mult": 1.0,
-    "confirm": 0,
+    "confirm": 2,
     "stop": null,
     "bans": {}
    },
@@ -78,18 +298,21 @@
    "stopped": []
   },
   "ai05_bollinger_reversion": {
-   "cash": 299.9,
+   "cash": 0.0,
    "units": {
-    "QQQ": 0.13895836524439592,
-    "NVDA": 0.46051118033956795
+    "SPY": 0.1624938231718096,
+    "QQQ": 0.17383390594685963,
+    "NVDA": 0.5765815680977531,
+    "TSLA": 0.3332357351717974
    },
    "status": "active",
    "interest": 0.0,
-   "fees": 0.1,
+   "fees": 0.24987506246876562,
    "rules": {
+    "tf": "4h",
     "lev_mult": 1.0,
     "confirm": 0,
-    "stop": null,
+    "stop": 0.15,
     "bans": {}
    },
    "peak": {},
@@ -102,25 +325,34 @@
    "interest": 0.0,
    "fees": 0.0,
    "rules": {
+    "tf": "4h",
     "lev_mult": 1.0,
-    "confirm": 0,
+    "confirm": 2,
     "stop": null,
-    "bans": {}
+    "bans": {
+     "XRP-USD": "2026-11-17 16:00",
+     "BTC-USD": "2026-11-17 16:00"
+    }
    },
    "peak": {},
    "stopped": []
   },
   "ai07_donchian_turtle": {
-   "cash": 249.875,
+   "cash": -636.7008874067761,
    "units": {
-    "AAPL": 0.36692592754502906,
-    "MSFT": 0.2351600029578719
+    "AAPL": 0.24483160833446005,
+    "TSLA": 0.22260213856744002,
+    "BTC-USD": 0.002935795596341851,
+    "ETH-USD": 0.09933385870570581,
+    "SOL-USD": 2.290304283480364,
+    "XRP-USD": 183.39426382876616
    },
    "status": "active",
    "interest": 0.0,
-   "fees": 0.125,
+   "fees": 1.0523152388346082,
    "rules": {
-    "lev_mult": 1.0,
+    "tf": "1h",
+    "lev_mult": 1.5,
     "confirm": 0,
     "stop": null,
     "bans": {}
@@ -135,26 +367,28 @@
    "interest": 0.0,
    "fees": 0.0,
    "rules": {
-    "lev_mult": 1.0,
-    "confirm": 0,
-    "stop": null,
+    "tf": "4h",
+    "lev_mult": 1.5,
+    "confirm": 2,
+    "stop": 0.15,
     "bans": {}
    },
    "peak": {},
    "stopped": []
   },
   "ai09_dual_momentum": {
-   "cash": 124.8125,
+   "cash": 406.1875,
    "units": {
-    "QQQ": 0.1736979565554949,
-    "AAPL": 0.36692592754502906,
-    "MSFT": 0.2351600029578719
+    "BTC-USD": 0.00037872167422247965,
+    "AAPL": 0.09181185312542252,
+    "MSFT": 0.05883975360853176
    },
    "status": "active",
    "interest": 0.0,
-   "fees": 0.1875,
+   "fees": 0.0625,
    "rules": {
-    "lev_mult": 1.0,
+    "tf": "1D",
+    "lev_mult": 0.25,
     "confirm": 0,
     "stop": null,
     "bans": {}
@@ -163,18 +397,23 @@
    "stopped": []
   },
   "ai10_vol_target_trend": {
-   "cash": 210.36159961133762,
+   "cash": -1.4210854715202004e-14,
    "units": {
-    "SPY": 0.07524299399234706,
-    "QQQ": 0.08045512969517306,
-    "NVDA": 0.26663012820519194,
-    "AAPL": 0.16995636376254822,
-    "MSFT": 0.10892372548463548
+    "XRP-USD": 34.41292709851656,
+    "SOL-USD": 0.4639427543769201,
+    "BTC-USD": 0.0007019945865550492,
+    "ETH-USD": 0.02375227729066662,
+    "SPY": 0.0752992183834147,
+    "QQQ": 0.08055418348114422,
+    "NVDA": 0.2671864109329203,
+    "AAPL": 0.17018150336379204,
+    "MSFT": 0.1083963200663334
    },
    "status": "active",
    "interest": 0.0,
-   "fees": 0.1447468267809407,
+   "fees": 0.3550108009271127,
    "rules": {
+    "tf": "1D",
     "lev_mult": 1.0,
     "confirm": 0,
     "stop": null,
@@ -190,26 +429,33 @@
    "interest": 0.0,
    "fees": 0.0,
    "rules": {
-    "lev_mult": 1.0,
+    "tf": "1D",
+    "lev_mult": 0.25,
     "confirm": 0,
-    "stop": null,
-    "bans": {}
+    "stop": 0.08,
+    "bans": {
+     "NVDA": "2026-11-17 16:00",
+     "MSFT": "2026-11-17 16:00",
+     "SPY": "2026-11-17 16:00"
+    }
    },
    "peak": {},
    "stopped": []
   },
   "ai12_stochastic": {
-   "cash": 299.9,
+   "cash": 124.8125,
    "units": {
-    "QQQ": 0.13895836524439592,
-    "NVDA": 0.46051118033956795
+    "QQQ": 0.17383390594685963,
+    "NVDA": 0.5765815680977531,
+    "TSLA": 0.33390320785116
    },
    "status": "active",
    "interest": 0.0,
-   "fees": 0.1,
+   "fees": 0.1875,
    "rules": {
-    "lev_mult": 1.0,
-    "confirm": 0,
+    "tf": "4h",
+    "lev_mult": 1.5,
+    "confirm": 2,
     "stop": null,
     "bans": {}
    },
@@ -217,14 +463,17 @@
    "stopped": []
   },
   "ai13_zscore": {
-   "cash": 500.0,
-   "units": {},
+   "cash": -125.625,
+   "units": {
+    "XRP-USD": 473.162250986236
+   },
    "status": "active",
    "interest": 0.0,
-   "fees": 0.0,
+   "fees": 0.625,
    "rules": {
-    "lev_mult": 1.0,
-    "confirm": 0,
+    "tf": "1D",
+    "lev_mult": 0.5,
+    "confirm": 2,
     "stop": null,
     "bans": {}
    },
@@ -238,94 +487,113 @@
    "interest": 0.0,
    "fees": 0.0,
    "rules": {
-    "lev_mult": 1.0,
+    "tf": "1D",
+    "lev_mult": 1.5,
     "confirm": 0,
-    "stop": null,
+    "stop": 0.08,
     "bans": {}
    },
    "peak": {},
    "stopped": []
   },
   "ai15_supertrend": {
-   "cash": 500.0,
-   "units": {},
+   "cash": -501.0,
+   "units": {
+    "BTC-USD": 0.012119093575119349
+   },
    "status": "active",
    "interest": 0.0,
-   "fees": 0.0,
+   "fees": 1.0,
    "rules": {
+    "tf": "1D",
     "lev_mult": 1.0,
     "confirm": 0,
-    "stop": null,
-    "bans": {}
+    "stop": 0.15,
+    "bans": {
+     "XRP-USD": "2026-11-17 16:00"
+    }
    },
    "peak": {},
    "stopped": []
   },
   "ai16_ichimoku": {
-   "cash": 0.0,
+   "cash": 249.875,
    "units": {
-    "SPY": 0.12995620640827507,
-    "QQQ": 0.13895836524439592,
-    "AAPL": 0.29354074203602326,
-    "MSFT": 0.18812800236629754,
-    "TSLA": 0.26676861723211664
+    "AAPL": 0.3672474125016901,
+    "MSFT": 0.23535901443412705
    },
    "status": "active",
    "interest": 0.0,
-   "fees": 0.24987506246876562,
+   "fees": 0.125,
    "rules": {
+    "tf": "4h",
     "lev_mult": 1.0,
-    "confirm": 0,
-    "stop": null,
+    "confirm": 2,
+    "stop": 0.08,
     "bans": {}
    },
    "peak": {},
    "stopped": []
   },
   "ai17_obv_breakout": {
-   "cash": 249.875,
-   "units": {
-    "AAPL": 0.36692592754502906,
-    "MSFT": 0.2351600029578719
-   },
+   "cash": 500.0,
+   "units": {},
    "status": "active",
    "interest": 0.0,
-   "fees": 0.125,
+   "fees": 0.0,
    "rules": {
-    "lev_mult": 1.0,
-    "confirm": 0,
-    "stop": null,
+    "tf": "1h",
+    "lev_mult": 1.5,
+    "confirm": 2,
+    "stop": 0.08,
     "bans": {}
    },
    "peak": {},
    "stopped": []
   },
   "ai18_vol_breakout": {
-   "cash": 500.0,
-   "units": {},
+   "cash": -601.05,
+   "units": {
+    "TSLA": 0.267122566280928,
+    "BTC-USD": 0.0030297733937798372,
+    "ETH-USD": 0.10251363636591161,
+    "SOL-USD": 2.3636192486954037,
+    "XRP-USD": 189.26490039449442
+   },
    "status": "active",
    "interest": 0.0,
-   "fees": 0.0,
+   "fees": 1.05,
    "rules": {
-    "lev_mult": 1.0,
-    "confirm": 0,
-    "stop": null,
-    "bans": {}
+    "tf": "1h",
+    "lev_mult": 0.25,
+    "confirm": 2,
+    "stop": 0.08,
+    "bans": {
+     "AAPL": "2026-11-17 16:00",
+     "NVDA": "2026-11-17 16:00",
+     "SPY": "2026-11-17 16:00"
+    }
    },
    "peak": {},
    "stopped": []
   },
   "ai19_ml_ridge": {
-   "cash": 500.0,
-   "units": {},
+   "cash": 290.08620205149055,
+   "units": {
+    "QQQ": 0.1437420351214622,
+    "NVDA": 0.4910042800883447
+   },
    "status": "active",
    "interest": 0.0,
-   "fees": 0.0,
+   "fees": 0.10490444675087929,
    "rules": {
-    "lev_mult": 1.0,
-    "confirm": 0,
-    "stop": null,
-    "bans": {}
+    "tf": "1D",
+    "lev_mult": 0.25,
+    "confirm": 2,
+    "stop": 0.15,
+    "bans": {
+     "ETH-USD": "2026-11-17 16:00"
+    }
    },
    "peak": {},
    "stopped": []
@@ -337,10 +605,15 @@
    "interest": 0.0,
    "fees": 0.0,
    "rules": {
-    "lev_mult": 1.0,
+    "tf": "1D",
+    "lev_mult": 0.5,
     "confirm": 0,
-    "stop": null,
-    "bans": {}
+    "stop": 0.08,
+    "bans": {
+     "AAPL": "2026-11-17 16:00",
+     "NVDA": "2026-11-17 16:00",
+     "QQQ": "2026-11-17 16:00"
+    }
    },
    "peak": {},
    "stopped": []
