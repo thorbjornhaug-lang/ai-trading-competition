@@ -3,6 +3,11 @@ on:
   schedule:
     - cron: "30 22 * * *"   # daily, after the US close
   workflow_dispatch:
+    inputs:
+      restart_from:
+        description: "Restart the competition from this date (YYYY-MM-DD). Leave empty for a normal daily run."
+        required: false
+        default: ""
 permissions:
   contents: write
 jobs:
@@ -14,7 +19,12 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -r requirements.txt
-      - run: python paper.py
+      - run: |
+          if [ -n "${{ inputs.restart_from }}" ]; then
+            python paper.py --reset --start "${{ inputs.restart_from }}"
+          else
+            python paper.py
+          fi
       - run: |
           git config user.name "paper-bot"
           git config user.email "paper-bot@users.noreply.github.com"

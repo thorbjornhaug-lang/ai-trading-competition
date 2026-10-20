@@ -8,8 +8,9 @@
 Rules
 - Long only. Signals use closed bars only; a signal from bar t is traded at the close of the asset's next bar.
 - Base weights: signal / max(sum of signals, 4)  ->  max 25% of the book per asset.
-- Leverage up to 10x. Each AI has its own risk profile (see RISK) that decides how much it uses:
-  gross exposure = base weights x leverage, where leverage = target_vol / portfolio_vol, capped at max_lev.
+- Leverage on crypto only (stocks max 1x). Each AI has a risk profile (see RISK) capping its leverage at 1x, 3x or 10x;
+  leverage = target_vol / portfolio_vol (or always max), scaled by the AI's own learned lev_mult.
+- Every week each AI reviews its own last 120 days and rewrites its rules (see learning.py).
 - Borrowed cash pays 8% a year. Fees: 0.10% crypto, 0.05% stocks.
 - Liquidation: if equity at the day's lows falls to 5% of exposure or less, the account is wiped out and is out.
 """
@@ -22,6 +23,7 @@ import numpy as np
 import pandas as pd
 
 import data
+import learning
 from strategies import AIS
 
 UNIVERSE = {
@@ -30,10 +32,9 @@ UNIVERSE = {
 }
 FEES = {"crypto": 0.001, "stock": 0.0005}
 START_CASH = 500.0
-MIN_SPLIT = 4
 REBAL_BAND = 0.03     # skip trades smaller than 3% of equity x leverage (avoids fee churn)
-BORROW_RATE = 0.08    # yearly interest on borrowed cash
-MAINT_MARGIN = 0.05   # liquidated when equity <= 5% of exposure
+BORROW_RATE = learning.BORROW_RATE
+MAINT_MARGIN = learning.MAINT_MARGIN
 HISTORY_START = "2022-01-01"
 
 # profile: (max leverage, target annual volatility or None = always max leverage)
@@ -106,7 +107,10 @@ class Competition:
         self.state = {
             "start": str(start.date()),
             "last_date": str((start - pd.Timedelta(days=1)).date()),
-            "accounts": {ai: {"cash": START_CASH, "units": {}, "status": "active", "interest": 0.0, "fees": 0.0}
+            "last_learn": str(start.date()),
+            "journal": [],
+            "accounts": {ai: {"cash": START_CASH, "units": {}, "status": "active", "interest": 0.0, "fees": 0.0,
+                              "rules": json.loads(json.dumps(learning.DEFAULT_RULES)), "peak": {}, "stopped": []}
                          for ai in AIS},
         }
 
@@ -124,15 +128,21 @@ class Competition:
             pd.DataFrame(trade_rows).to_csv(self.trades_path, mode="a", index=False,
                                             header=not os.path.exists(self.trades_path))
 
-    def step(self, date, prev, close, low, fresh, signals, vol):
-        """Process one calendar day for every account. Returns (equity row, leverage row, trades)."""
+    def step(self, i, date, close, low, fresh, ctx):
+        """Process calendar day i for every account. Returns (equity row, leverage row, trades)."""
         eq_row, lev_row, trades = {"date": date.date()}, {"date": date.date()}, []
         px, lo = close.loc[date], low.loc[date]
+        today = str(date.date())
+
+        def log(ai, t, side, usd, price=0.0, fee=0.0, lev=0.0, note=""):
+            trades.append({"date": date.date(), "ai": ai, "ticker": t, "side": side, "usd": round(usd, 2),
+                           "price": round(price, 6), "fee": round(fee, 4), "leverage": round(lev, 2), "note": note})
+
         for ai, acct in self.state["accounts"].items():
             if acct["status"] != "active":
                 eq_row[ai], lev_row[ai] = 0.0, 0.0
                 continue
-            units = acct["units"]
+            units, rules = acct["units"], acct["rules"]
 
             if acct["cash"] < 0:  # interest on borrowed cash, per calendar day
                 interest = -acct["cash"] * BORROW_RATE / 365
@@ -142,23 +152,32 @@ class Competition:
             # liquidation check at the day's lows (conservative: assumes all lows hit together)
             worst_exposure = sum(u * lo[t] for t, u in units.items())
             if units and acct["cash"] + worst_exposure <= MAINT_MARGIN * worst_exposure:
-                trades.append({"date": date.date(), "ai": ai, "ticker": "ALL", "side": "LIQUIDATED",
-                               "usd": round(worst_exposure, 2), "price": 0, "fee": 0, "leverage": 0})
-                acct.update(cash=0.0, units={}, status=f"liquidated {date.date()}")
+                log(ai, "ALL", "LIQUIDATED", worst_exposure)
+                acct.update(cash=0.0, units={}, status=f"liquidated {today}")
                 eq_row[ai], lev_row[ai] = 0.0, 0.0
                 continue
 
+            # trailing stop-loss on today's close
+            stop_notes = {}
+            for t in units:
+                if fresh.loc[date, t]:
+                    acct["peak"][t] = max(acct["peak"].get(t, px[t]), px[t])
+                    if rules["stop"] and px[t] < acct["peak"][t] * (1 - rules["stop"]) and t not in acct["stopped"]:
+                        acct["stopped"].append(t)
+                        stop_notes[t] = f"stop-loss {rules['stop']:.0%}"
+
             equity = acct["cash"] + sum(u * px[t] for t, u in units.items())
             max_lev, target_vol = PROFILES[RISK[ai]]
-            if prev is None:
-                sig = pd.Series(0.0, index=px.index)
-                lev = 0.0
+            if i == 0:
+                w, lev = np.zeros(len(ctx.tickers)), 0.0
             else:
-                sig = signals[ai].loc[prev]
-                w0 = sig / max(sig.sum(), MIN_SPLIT)
-                pvol = float((w0 * vol.loc[prev].fillna(1.0)).sum())
-                lev = max_lev if target_vol is None or pvol <= 0 else min(max_lev, target_vol / pvol)
-            w = sig / max(sig.sum(), MIN_SPLIT) * lev
+                raw = ctx.sig[ai][i - 1]
+                acct["stopped"] = [t for t in acct["stopped"] if raw[ctx.tickers.index(t)] > 0]
+                stopped = np.array([t in acct["stopped"] for t in ctx.tickers])
+                banned = learning.banned_mask(ctx, rules["bans"], today)
+                sig = learning.effective_signal(ctx, ai, i - 1, rules, banned, stopped)
+                w, lev = learning.target_weights(ctx, i - 1, sig, max_lev, target_vol, rules["lev_mult"])
+            w = pd.Series(w, index=ctx.tickers)
 
             orders = {}
             band = REBAL_BAND * equity * max(lev, 1.0)
@@ -185,20 +204,48 @@ class Competition:
                 acct["fees"] += fee
                 if units[t] * px[t] < 0.01:
                     units.pop(t)
-                trades.append({"date": date.date(), "ai": ai, "ticker": t, "side": "BUY" if value > 0 else "SELL",
-                               "usd": round(abs(value), 2), "price": round(px[t], 6), "fee": round(fee, 4),
-                               "leverage": round(lev, 2)})
+                    acct["peak"].pop(t, None)
+                note = stop_notes.get(t, "") or ("bannet" if value < 0 and t in rules["bans"] and w[t] == 0 else "")
+                trade_lev = lev if UNIVERSE[t] == "crypto" else min(lev, learning.STOCK_MAX_LEV)
+                log(ai, t, "BUY" if value > 0 else "SELL", abs(value), px[t], fee, trade_lev, note)
 
             gross = sum(u * px[t] for t, u in units.items())
             equity = acct["cash"] + gross
             if units and equity <= MAINT_MARGIN * gross:
-                trades.append({"date": date.date(), "ai": ai, "ticker": "ALL", "side": "LIQUIDATED",
-                               "usd": round(gross, 2), "price": 0, "fee": 0, "leverage": 0})
-                acct.update(cash=0.0, units={}, status=f"liquidated {date.date()}")
+                log(ai, "ALL", "LIQUIDATED", gross)
+                acct.update(cash=0.0, units={}, status=f"liquidated {today}")
                 equity, gross = 0.0, 0.0
             eq_row[ai] = equity
             lev_row[ai] = gross / equity if equity > 0 else 0.0
         return eq_row, lev_row, trades
+
+    def learn(self, i, date, ctx):
+        """Weekly: every active AI reviews its own recent results and rewrites its rules."""
+        today = str(date.date())
+        if (date - pd.Timestamp(self.state["last_learn"])).days < learning.LEARN_EVERY:
+            return
+        self.state["last_learn"] = today
+        for ai, acct in self.state["accounts"].items():
+            if acct["status"] != "active":
+                continue
+            max_lev, target_vol = PROFILES[RISK[ai]]
+            new, notes, before, after = learning.learn(ctx, ai, acct["rules"], i, today, max_lev, target_vol)
+            acct["rules"] = new
+            if notes:
+                self.state["journal"].append({"date": today, "ai": ai, "changes": notes,
+                                              "score_before": round(before, 3), "score_after": round(after, 3)})
+
+
+def rules_text(rules, date):
+    parts = [f"giring {rules['lev_mult']:.0%}"]
+    if rules["confirm"]:
+        parts.append(f"bekreft {rules['confirm']}d")
+    if rules["stop"]:
+        parts.append(f"stop {rules['stop']:.0%}")
+    bans = [t for t, until in rules["bans"].items() if until > date]
+    if bans:
+        parts.append("pause " + "/".join(bans))
+    return ", ".join(parts)
 
 
 def leaderboard(comp, close):
@@ -224,6 +271,8 @@ def leaderboard(comp, close):
             "Snitt giring": active_lev.mean() if len(active_lev) else 0.0,
             "Trades": int(((trades.ai == ai) & (trades.side != "LIQUIDATED")).sum()),
             "Status": acct["status"],
+            "Regler": rules_text(acct["rules"], comp.state["last_date"]),
+            "Lærte": sum(1 for j in comp.state["journal"] if j["ai"] == ai),
             "Top holdings": ", ".join(t for _, t in hold[:3]) or "-",
         })
     lb = pd.DataFrame(rows).sort_values("Equity $", ascending=False).reset_index(drop=True)
@@ -247,7 +296,7 @@ def write_markdown(lb, eq, bench, comp, path):
     beat = int((lb["Equity $"] > bench.iloc[-1]).sum())
     dead = int(lb.Status.str.startswith("liquidated").sum())
     text = (f"# 🏆 AI Trading Competition\n\n"
-            f"20 AIs · ${START_CASH:.0f} each · crypto + stocks · up to 10x leverage · paper money\n\n"
+            f"20 self-learning AIs · ${START_CASH:.0f} each · crypto + stocks · up to 10x leverage on crypto · paper money\n\n"
             f"**Start:** {comp.state['start']} · **Updated:** {eq.index[-1].date()} · **Days:** {len(eq)} · "
             f"**Liquidated:** {dead}\n\n"
             f"**Benchmark** (equal-weight buy & hold, no leverage): **${bench.iloc[-1]:,.2f}** "
@@ -263,7 +312,8 @@ def write_dashboard(lb, eq, lev, trades, bench, comp, close, path, demo):
     for ai, acct in comp.state["accounts"].items():
         holdings[ai] = sorted(([t, round(u * last_px[t], 2)] for t, u in acct["units"].items()),
                               key=lambda x: -x[1])
-    accounts = {ai: {k: round(v, 2) if isinstance(v, float) else v for k, v in acct.items() if k != "units"}
+    accounts = {ai: {k: round(v, 2) if isinstance(v, float) else v for k, v in acct.items()
+                     if k in ("cash", "status", "interest", "fees")}
                 for ai, acct in comp.state["accounts"].items()}
     payload = {
         "demo": demo,
@@ -280,7 +330,9 @@ def write_dashboard(lb, eq, lev, trades, bench, comp, close, path, demo):
         "leaderboard": json.loads(lb.to_json(orient="records")),
         "holdings": holdings,
         "accounts": accounts,
-        "trades": trades.astype({"date": str}).values.tolist() if len(trades) else [],
+        "trades": trades.astype({"date": str}).fillna("").values.tolist() if len(trades) else [],
+        "journal": comp.state["journal"],
+        "rules": {ai: acct["rules"] for ai, acct in comp.state["accounts"].items()},
         "tradeCols": list(trades.columns),
     }
     root = os.path.dirname(os.path.abspath(__file__))
@@ -318,12 +370,15 @@ def main():
     else:
         comp.load()
 
+    ctx = learning.Context(UNIVERSE, signals, close, low, vol, fresh,
+                           [k == "crypto" for k in UNIVERSE.values()], [FEES[k] for k in UNIVERSE.values()])
     last = pd.Timestamp(comp.state["last_date"])
     todo = calendar[calendar > last]
     equity_rows, lev_rows, trade_rows = [], [], []
     for d in todo:
         i = calendar.get_loc(d)
-        e, l, t = comp.step(d, calendar[i - 1] if i > 0 else None, close, low, fresh, signals, vol)
+        comp.learn(i, d, ctx)
+        e, l, t = comp.step(i, d, close, low, fresh, ctx)
         equity_rows.append(e)
         lev_rows.append(l)
         trade_rows.extend(t)
