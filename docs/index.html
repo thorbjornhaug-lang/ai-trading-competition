@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="no">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Trading-konkurranse</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root {
+  color-scheme: light;
+  --bg: #f6f6f4; --surface: #fcfcfb; --border: #e4e3de; --grid: #ecebe7;
+  --text: #0b0b0b; --text-2: #52514e; --muted: #807f79;
+  --p1: #2a78d6; --p2: #eb6834; --p3: #1baf7a; --p4: #eda100; --bench: #807f79;
+  --up: #008300; --down: #e34948; --accent: #2a78d6;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #121211; --surface: #1a1a19; --border: #2e2e2c; --grid: #262624;
+    --text: #f0efec; --text-2: #c3c2b7; --muted: #8f8e86;
+    --p1: #3987e5; --p2: #d95926; --p3: #199e70; --p4: #c98500; --bench: #8f8e86;
+    --up: #3fb950; --down: #e66767; --accent: #3987e5;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #121211; --surface: #1a1a19; --border: #2e2e2c; --grid: #262624;
+  --text: #f0efec; --text-2: #c3c2b7; --muted: #8f8e86;
+  --p1: #3987e5; --p2: #d95926; --p3: #199e70; --p4: #c98500; --bench: #8f8e86;
+  --up: #3fb950; --down: #e66767; --accent: #3987e5;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text);
+  font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif; }
+.wrap { max-width: 1240px; margin: 0 auto; padding: 24px 16px 64px; }
+h1 { font-size: 24px; margin: 0 0 4px; letter-spacing: -0.01em; }
+h2 { font-size: 16px; margin: 0 0 12px; }
+.sub { color: var(--text-2); margin: 0 0 20px; }
+.demo { background: var(--p4); color: #000; padding: 8px 12px; border-radius: 8px; margin-bottom: 16px; font-weight: 600; }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; min-width: 0; }
+.kpi .label { color: var(--text-2); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+.kpi .value { font-size: 24px; font-weight: 650; margin-top: 4px; font-variant-numeric: tabular-nums; }
+.kpi .note { color: var(--muted); font-size: 12px; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.grid2 { display: grid; grid-template-columns: 2fr 1fr; gap: 12px; margin-bottom: 16px; }
+@media (max-width: 860px) { .grid2 { grid-template-columns: 1fr; } }
+.chart { position: relative; height: 340px; }
+.chart.sm { height: 220px; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
+.row .spacer { flex: 1; }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--text-2); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; }
+.legend span.off { opacity: .35; }
+.legend i { width: 14px; height: 3px; border-radius: 2px; display: inline-block; }
+.legend i.dash { background: repeating-linear-gradient(90deg, var(--bench) 0 4px, transparent 4px 7px) !important; }
+button, select, input { font: inherit; color: var(--text); background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; padding: 6px 10px; }
+button { cursor: pointer; }
+button.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+.tbl { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--grid); white-space: nowrap; }
+th { color: var(--text-2); font-weight: 600; font-size: 12px; cursor: pointer; user-select: none; position: sticky; top: 0; background: var(--surface); }
+td.num, th.num { text-align: right; }
+tbody tr { cursor: pointer; }
+tbody tr:hover { background: var(--grid); }
+tr.sel { outline: 2px solid var(--accent); outline-offset: -2px; }
+.up { color: var(--up); } .down { color: var(--down); }
+.pill { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-2); }
+.pill i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.dead { color: var(--down); font-weight: 600; }
+.detail-head { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: baseline; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; margin: 12px 0; }
+.stats div { background: var(--bg); border-radius: 8px; padding: 8px 10px; }
+.stats b { display: block; font-size: 16px; font-variant-numeric: tabular-nums; }
+.stats small { color: var(--text-2); }
+.hold { display: flex; flex-wrap: wrap; gap: 6px; }
+.hold span { background: var(--bg); border-radius: 6px; padding: 4px 8px; font-size: 12px; font-variant-numeric: tabular-nums; }
+.tabs { display: flex; gap: 6px; }
+.scroll { max-height: 520px; overflow: auto; }
+.muted { color: var(--muted); }
+footer { color: var(--muted); font-size: 12px; margin-top: 24px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div id="demo"></div>
+  <h1>🏆 AI Trading-konkurranse</h1>
+  <p class="sub" id="sub"></p>
+
+  <div class="kpis" id="kpis"></div>
+
+  <div class="grid2">
+    <div class="card">
+      <div class="row">
+        <h2 style="margin:0">Saldo over tid</h2><div class="spacer"></div>
+        <div class="tabs"><button id="lin" class="on">Lineær</button><button id="log">Log</button></div>
+      </div>
+      <div class="legend" id="legend" style="margin-bottom:8px"></div>
+      <div class="chart"><canvas id="equityChart" aria-label="Saldo per AI over tid"></canvas></div>
+    </div>
+    <div class="card">
+      <h2>Lønner giring seg?</h2>
+      <p class="muted" style="margin:-6px 0 10px;font-size:12px">Snitt saldo per risikoprofil (5 AI-er hver)</p>
+      <div class="chart sm"><canvas id="profileChart" aria-label="Snitt saldo per risikoprofil"></canvas></div>
+      <div class="tbl"><table id="profileTable"></table></div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:16px">
+    <h2>Poengtavle</h2>
+    <div class="tbl"><table id="board"></table></div>
+  </div>
+
+  <div class="card" id="detail" style="margin-bottom:16px"></div>
+
+  <div class="card">
+    <div class="row">
+      <h2 style="margin:0">Alle trades</h2><div class="spacer"></div>
+      <select id="fAi"><option value="">Alle AI-er</option></select>
+      <select id="fTicker"><option value="">Alle eiendeler</option></select>
+      <select id="fSide"><option value="">Kjøp + salg</option><option>BUY</option><option>SELL</option><option>LIQUIDATED</option></select>
+    </div>
+    <div class="muted" id="tradeCount" style="margin-bottom:8px;font-size:12px"></div>
+    <div class="tbl scroll"><table id="trades"></table></div>
+    <div style="margin-top:10px"><button id="more">Vis flere</button></div>
+  </div>
+
+  <footer id="foot"></footer>
+</div>
+
+<script>
+const D = {"demo":false,"start":"2026-10-20","updated":"2026-10-20","startCash":500.0,"profiles":["Forsiktig 1x","Moderat ≤3x","Aggressiv ≤10x","Degen 10x"],"risk":{"ai04_rsi_reversion":"Forsiktig 1x","ai05_bollinger_reversion":"Forsiktig 1x","ai09_dual_momentum":"Forsiktig 1x","ai10_vol_target_trend":"Forsiktig 1x","ai16_ichimoku":"Forsiktig 1x","ai01_sma_cross":"Moderat ≤3x","ai02_ema_cross":"Moderat ≤3x","ai07_donchian_turtle":"Moderat ≤3x","ai12_stochastic":"Moderat ≤3x","ai17_obv_breakout":"Moderat ≤3x","ai03_macd":"Aggressiv ≤10x","ai08_tsmom":"Aggressiv ≤10x","ai13_zscore":"Aggressiv ≤10x","ai14_adx_trend":"Aggressiv ≤10x","ai19_ml_ridge":"Aggressiv ≤10x","ai06_bollinger_breakout":"Degen 10x","ai11_keltner":"Degen 10x","ai15_supertrend":"Degen 10x","ai18_vol_breakout":"Degen 10x","ai20_kalman_trend":"Degen 10x"},"universe":{"BTC-USD":"crypto","ETH-USD":"crypto","SOL-USD":"crypto","XRP-USD":"crypto","SPY":"stock","QQQ":"stock","NVDA":"stock","AAPL":"stock","MSFT":"stock","TSLA":"stock"},"dates":["2026-10-20"],"equity":{"ai01_sma_cross":[499.49],"ai02_ema_cross":[499.25],"ai03_macd":[499.38],"ai04_rsi_reversion":[500.0],"ai05_bollinger_reversion":[499.9],"ai06_bollinger_breakout":[499.38],"ai07_donchian_turtle":[499.62],"ai08_tsmom":[499.28],"ai09_dual_momentum":[499.81],"ai10_vol_target_trend":[499.86],"ai11_keltner":[499.38],"ai12_stochastic":[499.8],"ai13_zscore":[500.0],"ai14_adx_trend":[499.38],"ai15_supertrend":[498.0],"ai16_ichimoku":[499.75],"ai17_obv_breakout":[499.62],"ai18_vol_breakout":[498.12],"ai19_ml_ridge":[498.18],"ai20_kalman_trend":[500.0]},"leverage":{"ai01_sma_cross":[2.06],"ai02_ema_cross":[3.0],"ai03_macd":[2.5],"ai04_rsi_reversion":[0.0],"ai05_bollinger_reversion":[0.4],"ai06_bollinger_breakout":[2.5],"ai07_donchian_turtle":[1.5],"ai08_tsmom":[2.89],"ai09_dual_momentum":[0.75],"ai10_vol_target_trend":[0.58],"ai11_keltner":[2.5],"ai12_stochastic":[0.79],"ai13_zscore":[0.0],"ai14_adx_trend":[2.5],"ai15_supertrend":[8.03],"ai16_ichimoku":[1.0],"ai17_obv_breakout":[1.5],"ai18_vol_breakout":[7.53],"ai19_ml_ridge":[7.29],"ai20_kalman_trend":[0.0]},"benchmark":[500.0],"leaderboard":[{"AI":"ai04_rsi_reversion","Profil":"Forsiktig 1x","Equity $":500.0,"Return %":0.0,"Max DD %":0.0,"Sharpe":null,"Giring nå":0.0,"Snitt giring":0.0,"Trades":0,"Status":"active","Top holdings":"-"},{"AI":"ai20_kalman_trend","Profil":"Degen 10x","Equity $":500.0,"Return %":0.0,"Max DD %":0.0,"Sharpe":null,"Giring nå":0.0,"Snitt giring":0.0,"Trades":0,"Status":"active","Top holdings":"-"},{"AI":"ai13_zscore","Profil":"Aggressiv ≤10x","Equity $":500.0,"Return %":0.0,"Max DD %":0.0,"Sharpe":null,"Giring nå":0.0,"Snitt giring":0.0,"Trades":0,"Status":"active","Top holdings":"-"},{"AI":"ai05_bollinger_reversion","Profil":"Forsiktig 1x","Equity $":499.9,"Return %":-0.02,"Max DD %":0.0,"Sharpe":null,"Giring nå":0.400080016,"Snitt giring":0.400080016,"Trades":2,"Status":"active","Top holdings":"QQQ, NVDA"},{"AI":"ai10_vol_target_trend","Profil":"Forsiktig 1x","Equity $":499.8552531732,"Return %":-0.0289493654,"Max DD %":0.0,"Sharpe":null,"Giring nå":0.5791549688,"Snitt giring":0.5791549688,"Trades":5,"Status":"active","Top holdings":"SPY, QQQ, NVDA"},{"AI":"ai09_dual_momentum","Profil":"Forsiktig 1x","Equity $":499.8125,"Return %":-0.0375,"Max DD %":0.0,"Sharpe":null,"Giring nå":0.7502813555,"Snitt giring":0.7502813555,"Trades":3,"Status":"active","Top holdings":"QQQ, MSFT, AAPL"},{"AI":"ai12_stochastic","Profil":"Moderat ≤3x","Equity $":499.8028391407,"Return %":-0.0394321719,"Max DD %":0.0,"Sharpe":null,"Giring nå":0.7889545393,"Snitt giring":0.7889545393,"Trades":2,"Status":"active","Top holdings":"QQQ, NVDA"},{"AI":"ai16_ichimoku","Profil":"Forsiktig 1x","Equity $":499.7501249375,"Return %":-0.0499750125,"Max DD %":0.0,"Sharpe":null,"Giring nå":1.0,"Snitt giring":1.0,"Trades":5,"Status":"active","Top holdings":"SPY, QQQ, MSFT"},{"AI":"ai17_obv_breakout","Profil":"Moderat ≤3x","Equity $":499.625,"Return %":-0.075,"Max DD %":0.0,"Sharpe":null,"Giring nå":1.5011258444,"Snitt giring":1.5011258444,"Trades":2,"Status":"active","Top holdings":"MSFT, AAPL"},{"AI":"ai07_donchian_turtle","Profil":"Moderat ≤3x","Equity $":499.625,"Return %":-0.075,"Max DD %":0.0,"Sharpe":null,"Giring nå":1.5011258444,"Snitt giring":1.5011258444,"Trades":2,"Status":"active","Top holdings":"MSFT, AAPL"},{"AI":"ai01_sma_cross","Profil":"Moderat ≤3x","Equity $":499.4867500229,"Return %":-0.1026499954,"Max DD %":0.0,"Sharpe":null,"Giring nå":2.055109478,"Snitt giring":2.055109478,"Trades":6,"Status":"active","Top holdings":"TSLA, SPY, QQQ"},{"AI":"ai03_macd","Profil":"Aggressiv ≤10x","Equity $":499.375,"Return %":-0.125,"Max DD %":0.0,"Sharpe":null,"Giring nå":2.5031289111,"Snitt giring":2.5031289111,"Trades":1,"Status":"active","Top holdings":"AAPL"},{"AI":"ai06_bollinger_breakout","Profil":"Degen 10x","Equity $":499.375,"Return %":-0.125,"Max DD %":0.0,"Sharpe":null,"Giring nå":2.5031289111,"Snitt giring":2.5031289111,"Trades":1,"Status":"active","Top holdings":"MSFT"},{"AI":"ai14_adx_trend","Profil":"Aggressiv ≤10x","Equity $":499.375,"Return %":-0.125,"Max DD %":0.0,"Sharpe":null,"Giring nå":2.5031289111,"Snitt giring":2.5031289111,"Trades":1,"Status":"active","Top holdings":"MSFT"},{"AI":"ai11_keltner","Profil":"Degen 10x","Equity $":499.375,"Return %":-0.125,"Max DD %":0.0,"Sharpe":null,"Giring nå":2.5031289111,"Snitt giring":2.5031289111,"Trades":1,"Status":"active","Top holdings":"MSFT"},{"AI":"ai08_tsmom","Profil":"Aggressiv ≤10x","Equity $":499.2788396737,"Return %":-0.1442320653,"Max DD %":0.0,"Sharpe":null,"Giring nå":2.8888078924,"Snitt giring":2.8888078924,"Trades":5,"Status":"active","Top holdings":"SPY, QQQ, NVDA"},{"AI":"ai02_ema_cross","Profil":"Moderat ≤3x","Equity $":499.251123315,"Return %":-0.149775337,"Max DD %":0.0,"Sharpe":null,"Giring nå":3.0,"Snitt giring":3.0,"Trades":5,"Status":"active","Top holdings":"SPY, QQQ, MSFT"},{"AI":"ai19_ml_ridge","Profil":"Aggressiv ≤10x","Equity $":498.1849059924,"Return %":-0.3630188015,"Max DD %":0.0,"Sharpe":null,"Giring nå":7.2868285881,"Snitt giring":7.2868285881,"Trades":5,"Status":"active","Top holdings":"QQQ, NVDA, SPY"},{"AI":"ai18_vol_breakout","Profil":"Degen 10x","Equity $":498.125,"Return %":-0.375,"Max DD %":0.0,"Sharpe":null,"Giring nå":7.5282308657,"Snitt giring":7.5282308657,"Trades":3,"Status":"active","Top holdings":"TSLA, NVDA, AAPL"},{"AI":"ai15_supertrend","Profil":"Degen 10x","Equity $":498.0,"Return %":-0.4,"Max DD %":0.0,"Sharpe":null,"Giring nå":8.0321285141,"Snitt giring":8.0321285141,"Trades":4,"Status":"active","Top holdings":"TSLA, SPY, MSFT"}],"holdings":{"ai01_sma_cross":[["SPY",171.08],["QQQ",171.08],["NVDA",171.08],["AAPL",171.08],["MSFT",171.08],["TSLA",171.08]],"ai02_ema_cross":[["SPY",300.0],["QQQ",300.0],["AAPL",300.0],["MSFT",300.0],["TSLA",297.75]],"ai03_macd":[["AAPL",1250.0]],"ai04_rsi_reversion":[],"ai05_bollinger_reversion":[["QQQ",100.0],["NVDA",100.0]],"ai06_bollinger_breakout":[["MSFT",1250.0]],"ai07_donchian_turtle":[["AAPL",375.0],["MSFT",375.0]],"ai08_tsmom":[["SPY",288.46],["QQQ",288.46],["NVDA",288.46],["AAPL",288.46],["MSFT",288.46]],"ai09_dual_momentum":[["QQQ",125.0],["AAPL",125.0],["MSFT",125.0]],"ai10_vol_target_trend":[["SPY",57.9],["QQQ",57.9],["NVDA",57.9],["AAPL",57.9],["MSFT",57.9]],"ai11_keltner":[["MSFT",1250.0]],"ai12_stochastic":[["QQQ",197.16],["NVDA",197.16]],"ai13_zscore":[],"ai14_adx_trend":[["MSFT",1250.0]],"ai15_supertrend":[["SPY",1000.0],["AAPL",1000.0],["MSFT",1000.0],["TSLA",1000.0]],"ai16_ichimoku":[["SPY",100.0],["QQQ",100.0],["AAPL",100.0],["MSFT",100.0],["TSLA",99.75]],"ai17_obv_breakout":[["AAPL",375.0],["MSFT",375.0]],"ai18_vol_breakout":[["NVDA",1250.0],["AAPL",1250.0],["TSLA",1250.0]],"ai19_ml_ridge":[["QQQ",1250.0],["NVDA",1250.0],["SPY",671.88],["AAPL",291.08],["MSFT",167.23]],"ai20_kalman_trend":[]},"accounts":{"ai01_sma_cross":{"cash":-527.01,"status":"active","interest":0.0,"fees":0.51},"ai02_ema_cross":{"cash":-998.5,"status":"active","interest":0.0,"fees":0.75},"ai03_macd":{"cash":-750.62,"status":"active","interest":0.0,"fees":0.62},"ai04_rsi_reversion":{"cash":500.0,"status":"active","interest":0.0,"fees":0.0},"ai05_bollinger_reversion":{"cash":299.9,"status":"active","interest":0.0,"fees":0.1},"ai06_bollinger_breakout":{"cash":-750.62,"status":"active","interest":0.0,"fees":0.62},"ai07_donchian_turtle":{"cash":-250.38,"status":"active","interest":0.0,"fees":0.38},"ai08_tsmom":{"cash":-943.04,"status":"active","interest":0.0,"fees":0.72},"ai09_dual_momentum":{"cash":124.81,"status":"active","interest":0.0,"fees":0.19},"ai10_vol_target_trend":{"cash":210.36,"status":"active","interest":0.0,"fees":0.14},"ai11_keltner":{"cash":-750.62,"status":"active","interest":0.0,"fees":0.62},"ai12_stochastic":{"cash":105.48,"status":"active","interest":0.0,"fees":0.2},"ai13_zscore":{"cash":500.0,"status":"active","interest":0.0,"fees":0.0},"ai14_adx_trend":{"cash":-750.62,"status":"active","interest":0.0,"fees":0.62},"ai15_supertrend":{"cash":-3502.0,"status":"active","interest":0.0,"fees":2.0},"ai16_ichimoku":{"cash":0.0,"status":"active","interest":0.0,"fees":0.25},"ai17_obv_breakout":{"cash":-250.38,"status":"active","interest":0.0,"fees":0.38},"ai18_vol_breakout":{"cash":-3251.88,"status":"active","interest":0.0,"fees":1.88},"ai19_ml_ridge":{"cash":-3132.0,"status":"active","interest":0.0,"fees":1.82},"ai20_kalman_trend":{"cash":500.0,"status":"active","interest":0.0,"fees":0.0}},"trades":[["2026-10-20","ai01_sma_cross","SPY","BUY",171.08,769.234985,0.0855,2.74],["2026-10-20","ai01_sma_cross","QQQ","BUY",171.08,718.960022,0.0855,2.74],["2026-10-20","ai01_sma_cross","NVDA","BUY",171.08,217.0401,0.0855,2.74],["2026-10-20","ai01_sma_cross","AAPL","BUY",171.08,340.830109,0.0855,2.74],["2026-10-20","ai01_sma_cross","MSFT","BUY",171.08,531.580017,0.0855,2.74],["2026-10-20","ai01_sma_cross","TSLA","BUY",171.08,374.040009,0.0855,2.74],["2026-10-20","ai02_ema_cross","SPY","BUY",300.0,769.234985,0.15,3.0],["2026-10-20","ai02_ema_cross","QQQ","BUY",300.0,718.960022,0.15,3.0],["2026-10-20","ai02_ema_cross","AAPL","BUY",300.0,340.830109,0.15,3.0],["2026-10-20","ai02_ema_cross","MSFT","BUY",300.0,531.580017,0.15,3.0],["2026-10-20","ai02_ema_cross","TSLA","BUY",297.75,374.040009,0.1489,3.0],["2026-10-20","ai03_macd","AAPL","BUY",1250.0,340.830109,0.625,10.0],["2026-10-20","ai05_bollinger_reversion","QQQ","BUY",100.0,718.960022,0.05,1.0],["2026-10-20","ai05_bollinger_reversion","NVDA","BUY",100.0,217.0401,0.05,1.0],["2026-10-20","ai06_bollinger_breakout","MSFT","BUY",1250.0,531.580017,0.625,10.0],["2026-10-20","ai07_donchian_turtle","AAPL","BUY",375.0,340.830109,0.1875,3.0],["2026-10-20","ai07_donchian_turtle","MSFT","BUY",375.0,531.580017,0.1875,3.0],["2026-10-20","ai08_tsmom","SPY","BUY",288.46,769.234985,0.1442,5.19],["2026-10-20","ai08_tsmom","QQQ","BUY",288.46,718.960022,0.1442,5.19],["2026-10-20","ai08_tsmom","NVDA","BUY",288.46,217.0401,0.1442,5.19],["2026-10-20","ai08_tsmom","AAPL","BUY",288.46,340.830109,0.1442,5.19],["2026-10-20","ai08_tsmom","MSFT","BUY",288.46,531.580017,0.1442,5.19],["2026-10-20","ai09_dual_momentum","QQQ","BUY",125.0,718.960022,0.0625,1.0],["2026-10-20","ai09_dual_momentum","AAPL","BUY",125.0,340.830109,0.0625,1.0],["2026-10-20","ai09_dual_momentum","MSFT","BUY",125.0,531.580017,0.0625,1.0],["2026-10-20","ai10_vol_target_trend","SPY","BUY",57.9,769.234985,0.0289,1.0],["2026-10-20","ai10_vol_target_trend","QQQ","BUY",57.9,718.960022,0.0289,1.0],["2026-10-20","ai10_vol_target_trend","NVDA","BUY",57.9,217.0401,0.0289,1.0],["2026-10-20","ai10_vol_target_trend","AAPL","BUY",57.9,340.830109,0.0289,1.0],["2026-10-20","ai10_vol_target_trend","MSFT","BUY",57.9,531.580017,0.0289,1.0],["2026-10-20","ai11_keltner","MSFT","BUY",1250.0,531.580017,0.625,10.0],["2026-10-20","ai12_stochastic","QQQ","BUY",197.16,718.960022,0.0986,1.97],["2026-10-20","ai12_stochastic","NVDA","BUY",197.16,217.0401,0.0986,1.97],["2026-10-20","ai14_adx_trend","MSFT","BUY",1250.0,531.580017,0.625,10.0],["2026-10-20","ai15_supertrend","SPY","BUY",1000.0,769.234985,0.5,10.0],["2026-10-20","ai15_supertrend","AAPL","BUY",1000.0,340.830109,0.5,10.0],["2026-10-20","ai15_supertrend","MSFT","BUY",1000.0,531.580017,0.5,10.0],["2026-10-20","ai15_supertrend","TSLA","BUY",1000.0,374.040009,0.5,10.0],["2026-10-20","ai16_ichimoku","SPY","BUY",100.0,769.234985,0.05,1.0],["2026-10-20","ai16_ichimoku","QQQ","BUY",100.0,718.960022,0.05,1.0],["2026-10-20","ai16_ichimoku","AAPL","BUY",100.0,340.830109,0.05,1.0],["2026-10-20","ai16_ichimoku","MSFT","BUY",100.0,531.580017,0.05,1.0],["2026-10-20","ai16_ichimoku","TSLA","BUY",99.75,374.040009,0.0499,1.0],["2026-10-20","ai17_obv_breakout","AAPL","BUY",375.0,340.830109,0.1875,3.0],["2026-10-20","ai17_obv_breakout","MSFT","BUY",375.0,531.580017,0.1875,3.0],["2026-10-20","ai18_vol_breakout","NVDA","BUY",1250.0,217.0401,0.625,10.0],["2026-10-20","ai18_vol_breakout","AAPL","BUY",1250.0,340.830109,0.625,10.0],["2026-10-20","ai18_vol_breakout","TSLA","BUY",1250.0,374.040009,0.625,10.0],["2026-10-20","ai19_ml_ridge","MSFT","BUY",167.23,531.580017,0.0836,10.0],["2026-10-20","ai19_ml_ridge","AAPL","BUY",291.08,340.830109,0.1455,10.0],["2026-10-20","ai19_ml_ridge","SPY","BUY",671.88,769.234985,0.3359,10.0],["2026-10-20","ai19_ml_ridge","QQQ","BUY",1250.0,718.960022,0.625,10.0],["2026-10-20","ai19_ml_ridge","NVDA","BUY",1250.0,217.0401,0.625,10.0]],"tradeCols":["date","ai","ticker","side","usd","price","fee","leverage"]};
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const PCOL = i => css('--p' + (i + 1));
+const profileIdx = ai => D.profiles.indexOf(D.risk[ai]);
+const usd = v => '$' + v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const pct = v => (v >= 0 ? '+' : '') + v.toFixed(1) + '%';
+const short = ai => ai.replace(/^ai(\d+)_/, '$1 ').replace(/_/g, ' ');
+const cls = v => v >= 0 ? 'up' : 'down';
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+if (D.demo) document.getElementById('demo').innerHTML =
+  '<div class="demo">DEMO – syntetiske priser, ikke ekte marked</div>';
+document.getElementById('sub').textContent =
+  `20 AI-er · $${D.startCash} hver · krypto + aksjer · opptil 10x giring · papirpenger · start ${D.start} · oppdatert ${D.updated}`;
+
+// ---------- KPIs ----------
+const lb = D.leaderboard;
+const bench = D.benchmark[D.benchmark.length - 1];
+const dead = lb.filter(r => r.Status.startsWith('liquidated'));
+const nTrades = D.trades.filter(t => t[3] !== 'LIQUIDATED').length;
+const kpis = [
+  ['Leder', usd(lb[0]['Equity $']), short(lb[0].AI) + ' · ' + pct(lb[0]['Return %'])],
+  ['Sistemann', usd(lb[lb.length - 1]['Equity $']), short(lb[lb.length - 1].AI)],
+  ['Benchmark', usd(bench), 'kjøp og hold alt, 1x'],
+  ['Slår markedet', lb.filter(r => r['Equity $'] > bench).length + ' / 20', 'AI-er over benchmark'],
+  ['Likvidert', dead.length + ' / 20', dead.map(r => short(r.AI)).join(', ') || 'ingen ennå'],
+  ['Trades', nTrades.toLocaleString('no'), D.dates.length + ' dager'],
+];
+document.getElementById('kpis').innerHTML = kpis.map(([l, v, n]) =>
+  `<div class="card kpi"><div class="label">${l}</div><div class="value">${v}</div><div class="note" title="${esc(n)}">${esc(n)}</div></div>`).join('');
+
+// ---------- charts ----------
+Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
+Chart.defaults.color = css('--text-2');
+Chart.defaults.borderColor = css('--grid');
+const ais = Object.keys(D.equity);
+let selected = lb[0].AI;
+const hidden = new Set();
+
+const tooltip = {
+  backgroundColor: css('--surface'), titleColor: css('--text'), bodyColor: css('--text'),
+  borderColor: css('--border'), borderWidth: 1, padding: 10, boxPadding: 4,
+};
+
+const eqDatasets = ais.map(ai => ({
+  label: short(ai), ai, data: D.equity[ai], borderColor: PCOL(profileIdx(ai)),
+  borderWidth: 1.5, pointRadius: 0, pointHoverRadius: 4, tension: 0, spanGaps: true,
+}));
+eqDatasets.push({ label: 'Benchmark', ai: null, data: D.benchmark, borderColor: css('--bench'),
+  borderDash: [5, 4], borderWidth: 2, pointRadius: 0, pointHoverRadius: 4 });
+
+const equityChart = new Chart(document.getElementById('equityChart'), {
+  type: 'line',
+  data: { labels: D.dates, datasets: eqDatasets },
+  options: {
+    maintainAspectRatio: false, animation: false,
+    interaction: { mode: 'nearest', intersect: false, axis: 'xy' },
+    plugins: { legend: { display: false }, tooltip: { ...tooltip,
+      callbacks: { label: c => ` ${c.dataset.label}: ${usd(c.parsed.y)}${c.dataset.ai ? ' · ' + D.risk[c.dataset.ai] : ''}` } } },
+    scales: {
+      x: { ticks: { maxTicksLimit: 8, maxRotation: 0 }, grid: { display: false } },
+      y: { ticks: { callback: v => '$' + v } },
+    },
+    onHover: (e, els) => highlight(els.length ? eqDatasets[els[0].datasetIndex].ai : null),
+    onClick: (e, els) => { if (els.length && eqDatasets[els[0].datasetIndex].ai) select(eqDatasets[els[0].datasetIndex].ai); },
+  },
+});
+function highlight(ai) {
+  eqDatasets.forEach(ds => {
+    if (!ds.ai) return;
+    const on = !ai || ds.ai === ai || ds.ai === selected;
+    ds.borderWidth = ds.ai === ai || ds.ai === selected ? 3 : 1.5;
+    ds.borderColor = PCOL(profileIdx(ds.ai)) + (on ? '' : '40');
+  });
+  equityChart.update('none');
+}
+document.getElementById('legend').innerHTML =
+  D.profiles.map((p, i) => `<span data-p="${i}"><i style="background:${PCOL(i)}"></i>${esc(p)}</span>`).join('') +
+  `<span data-p="b"><i class="dash"></i>Benchmark</span>`;
+document.querySelectorAll('#legend span').forEach(el => el.onclick = () => {
+  const p = el.dataset.p;
+  el.classList.toggle('off');
+  eqDatasets.forEach(ds => {
+    const match = p === 'b' ? !ds.ai : ds.ai && profileIdx(ds.ai) === +p;
+    if (match) ds.hidden = el.classList.contains('off');
+  });
+  equityChart.update('none');
+});
+const setScale = t => {
+  equityChart.options.scales.y.type = t;
+  document.getElementById('lin').classList.toggle('on', t === 'linear');
+  document.getElementById('log').classList.toggle('on', t === 'logarithmic');
+  equityChart.update('none');
+};
+document.getElementById('lin').onclick = () => setScale('linear');
+document.getElementById('log').onclick = () => setScale('logarithmic');
+
+// profile comparison
+const prof = D.profiles.map((p, i) => {
+  const rows = lb.filter(r => r.Profil === p);
+  const avg = rows.reduce((s, r) => s + r['Equity $'], 0) / rows.length;
+  const best = rows.reduce((a, b) => a['Equity $'] > b['Equity $'] ? a : b);
+  return { p, i, avg, best, dead: rows.filter(r => r.Status.startsWith('liquidated')).length,
+    lev: rows.reduce((s, r) => s + r['Snitt giring'], 0) / rows.length };
+});
+new Chart(document.getElementById('profileChart'), {
+  type: 'bar',
+  data: { labels: prof.map(x => x.p), datasets: [{ data: prof.map(x => x.avg),
+    backgroundColor: prof.map(x => PCOL(x.i)), borderRadius: 4, borderSkipped: 'start', maxBarThickness: 48 }] },
+  options: { maintainAspectRatio: false, animation: false,
+    plugins: { legend: { display: false }, tooltip: { ...tooltip, callbacks: { label: c => ' Snitt: ' + usd(c.parsed.y) } } },
+    scales: { x: { grid: { display: false }, ticks: { font: { size: 11 } } }, y: { beginAtZero: true, ticks: { callback: v => '$' + v } } } },
+});
+document.getElementById('profileTable').innerHTML =
+  '<thead><tr><th>Profil</th><th class="num">Snitt</th><th class="num">Snitt giring</th><th class="num">Likvidert</th></tr></thead><tbody>' +
+  prof.map(x => `<tr data-ai="${x.best.AI}"><td><span class="pill"><i style="background:${PCOL(x.i)}"></i>${esc(x.p)}</span></td>
+    <td class="num">${usd(x.avg)}</td><td class="num">${x.lev.toFixed(1)}x</td><td class="num">${x.dead}/5</td></tr>`).join('') + '</tbody>';
+
+// ---------- leaderboard ----------
+const cols = [
+  ['#', r => r.rank, r => r.rank === 1 ? '🥇' : r.rank === 2 ? '🥈' : r.rank === 3 ? '🥉' : r.rank, 'num'],
+  ['AI', r => r.AI, r => esc(short(r.AI))],
+  ['Profil', r => r.Profil, r => `<span class="pill"><i style="background:${PCOL(D.profiles.indexOf(r.Profil))}"></i>${esc(r.Profil)}</span>`],
+  ['Saldo', r => r['Equity $'], r => usd(r['Equity $']), 'num'],
+  ['Avkastning', r => r['Return %'], r => `<span class="${cls(r['Return %'])}">${pct(r['Return %'])}</span>`, 'num'],
+  ['Største fall', r => r['Max DD %'], r => r['Max DD %'].toFixed(1) + '%', 'num'],
+  ['Sharpe', r => r.Sharpe ?? -99, r => r.Sharpe == null ? '–' : r.Sharpe.toFixed(2), 'num'],
+  ['Giring nå', r => r['Giring nå'], r => r['Giring nå'].toFixed(1) + 'x', 'num'],
+  ['Snitt giring', r => r['Snitt giring'], r => r['Snitt giring'].toFixed(1) + 'x', 'num'],
+  ['Trades', r => r.Trades, r => r.Trades, 'num'],
+  ['Status', r => r.Status, r => r.Status === 'active' ? '<span class="muted">aktiv</span>' : `<span class="dead">💀 ${esc(r.Status.replace('liquidated', 'likvidert'))}</span>`],
+  ['Eier nå', r => r['Top holdings'], r => esc(r['Top holdings'])],
+];
+lb.forEach((r, i) => r.rank = i + 1);
+let sortCol = 0, sortDir = 1;
+function renderBoard() {
+  const rows = [...lb].sort((a, b) => {
+    const x = cols[sortCol][1](a), y = cols[sortCol][1](b);
+    return (x > y ? 1 : x < y ? -1 : 0) * sortDir;
+  });
+  document.getElementById('board').innerHTML =
+    '<thead><tr>' + cols.map((c, i) => `<th class="${c[3] || ''}" data-i="${i}">${c[0]}${i === sortCol ? (sortDir > 0 ? ' ▲' : ' ▼') : ''}</th>`).join('') + '</tr></thead><tbody>' +
+    rows.map(r => `<tr data-ai="${r.AI}" class="${r.AI === selected ? 'sel' : ''}">` + cols.map(c => `<td class="${c[3] || ''}">${c[2](r)}</td>`).join('') + '</tr>').join('') + '</tbody>';
+  document.querySelectorAll('#board th').forEach(th => th.onclick = () => {
+    const i = +th.dataset.i; sortDir = sortCol === i ? -sortDir : (cols[i][3] ? -1 : 1); sortCol = i; renderBoard();
+  });
+  document.querySelectorAll('#board tbody tr, #profileTable tbody tr').forEach(tr => {
+    tr.onclick = () => select(tr.dataset.ai);
+    tr.onmouseenter = () => highlight(tr.dataset.ai);
+    tr.onmouseleave = () => highlight(null);
+  });
+}
+
+// ---------- detail ----------
+let detailEq, detailLev;
+function select(ai) {
+  selected = ai;
+  renderBoard(); highlight(null);
+  const r = lb.find(x => x.AI === ai), acct = D.accounts[ai];
+  const own = D.trades.filter(t => t[1] === ai);
+  const holds = D.holdings[ai];
+  const el = document.getElementById('detail');
+  el.innerHTML = `
+    <div class="detail-head"><h2 style="margin:0">#${r.rank} ${esc(short(ai))}</h2>
+      <span class="pill"><i style="background:${PCOL(profileIdx(ai))}"></i>${esc(r.Profil)}</span></div>
+    <div class="stats">
+      <div><small>Saldo</small><b>${usd(r['Equity $'])}</b></div>
+      <div><small>Avkastning</small><b class="${cls(r['Return %'])}">${pct(r['Return %'])}</b></div>
+      <div><small>Største fall</small><b>${r['Max DD %'].toFixed(1)}%</b></div>
+      <div><small>Giring nå / snitt</small><b>${r['Giring nå'].toFixed(1)}x / ${r['Snitt giring'].toFixed(1)}x</b></div>
+      <div><small>Betalt rente</small><b>${usd(acct.interest)}</b></div>
+      <div><small>Betalt gebyr</small><b>${usd(acct.fees)}</b></div>
+      <div><small>Kontant</small><b class="${cls(acct.cash)}">${usd(acct.cash)}</b></div>
+    </div>
+    <div class="row"><b>Posisjoner:</b><div class="hold">${holds.length ? holds.map(([t, v]) => `<span>${t} ${usd(v)}</span>`).join('') : '<span class="muted">ingen (står i kontanter)</span>'}</div></div>
+    <div class="grid2" style="margin:0">
+      <div><h2>Saldo vs benchmark</h2><div class="chart sm"><canvas id="dEq"></canvas></div></div>
+      <div><h2>Giring</h2><div class="chart sm"><canvas id="dLev"></canvas></div></div>
+    </div>
+    <h2 style="margin-top:16px">Siste trades (${own.length})</h2>
+    <div class="tbl scroll" style="max-height:260px"><table>${tradeHead()}<tbody>${own.slice(-50).reverse().map(tradeRow).join('')}</tbody></table></div>`;
+  detailEq?.destroy(); detailLev?.destroy();
+  const color = PCOL(profileIdx(ai));
+  const base = { maintainAspectRatio: false, animation: false, interaction: { mode: 'index', intersect: false },
+    scales: { x: { ticks: { maxTicksLimit: 6, maxRotation: 0 }, grid: { display: false } } } };
+  detailEq = new Chart(document.getElementById('dEq'), { type: 'line',
+    data: { labels: D.dates, datasets: [
+      { label: short(ai), data: D.equity[ai], borderColor: color, borderWidth: 2, pointRadius: 0 },
+      { label: 'Benchmark', data: D.benchmark, borderColor: css('--bench'), borderDash: [5, 4], borderWidth: 2, pointRadius: 0 }] },
+    options: { ...base, plugins: { legend: { labels: { boxHeight: 2, boxWidth: 14 } }, tooltip: { ...tooltip, callbacks: { label: c => ` ${c.dataset.label}: ${usd(c.parsed.y)}` } } },
+      scales: { ...base.scales, y: { ticks: { callback: v => '$' + v } } } } });
+  detailLev = new Chart(document.getElementById('dLev'), { type: 'line',
+    data: { labels: D.dates, datasets: [{ label: 'Giring', data: D.leverage[ai], borderColor: color,
+      backgroundColor: color + '33', fill: true, borderWidth: 2, pointRadius: 0, stepped: true }] },
+    options: { ...base, plugins: { legend: { display: false }, tooltip: { ...tooltip, callbacks: { label: c => ` Giring: ${c.parsed.y.toFixed(2)}x` } } },
+      scales: { ...base.scales, y: { min: 0, suggestedMax: 2, ticks: { callback: v => v + 'x' } } } } });
+}
+
+// ---------- trades ----------
+const T = D.tradeCols.reduce((o, c, i) => (o[c] = i, o), {});
+function tradeHead() {
+  return '<thead><tr><th>Dato</th><th>AI</th><th>Eiendel</th><th>Side</th><th class="num">Beløp</th><th class="num">Pris</th><th class="num">Gebyr</th><th class="num">Giring</th></tr></thead>';
+}
+function tradeRow(t) {
+  const side = t[T.side];
+  const sideHtml = side === 'BUY' ? '<span class="up">KJØP</span>' : side === 'SELL' ? '<span class="down">SALG</span>' : '<span class="dead">💀 LIKVIDERT</span>';
+  return `<tr data-ai="${t[T.ai]}"><td>${t[T.date]}</td><td>${esc(short(t[T.ai]))}</td><td>${t[T.ticker]}</td><td>${sideHtml}</td>
+    <td class="num">${usd(t[T.usd])}</td><td class="num">${t[T.price] ? t[T.price].toLocaleString('en-US', { maximumSignificantDigits: 6 }) : '–'}</td>
+    <td class="num">${usd(t[T.fee])}</td><td class="num">${t[T.leverage] != null ? (+t[T.leverage]).toFixed(1) + 'x' : '–'}</td></tr>`;
+}
+const fAi = document.getElementById('fAi'), fTicker = document.getElementById('fTicker'), fSide = document.getElementById('fSide');
+ais.forEach(a => fAi.add(new Option(short(a), a)));
+Object.keys(D.universe).forEach(t => fTicker.add(new Option(t, t)));
+let shown = 200;
+function renderTrades() {
+  const rows = D.trades.filter(t => (!fAi.value || t[T.ai] === fAi.value) && (!fTicker.value || t[T.ticker] === fTicker.value || t[T.ticker] === 'ALL') && (!fSide.value || t[T.side] === fSide.value));
+  document.getElementById('tradeCount').textContent = `${rows.length.toLocaleString('no')} trades · nyeste først`;
+  document.getElementById('trades').innerHTML = tradeHead() + '<tbody>' + rows.slice(-shown).reverse().map(tradeRow).join('') + '</tbody>';
+  document.getElementById('more').style.display = rows.length > shown ? '' : 'none';
+  document.querySelectorAll('#trades tbody tr').forEach(tr => tr.onclick = () => { select(tr.dataset.ai); document.getElementById('detail').scrollIntoView({ behavior: 'smooth' }); });
+}
+[fAi, fTicker, fSide].forEach(s => s.onchange = () => { shown = 200; renderTrades(); });
+document.getElementById('more').onclick = () => { shown += 500; renderTrades(); };
+
+select(selected);
+renderTrades();
+document.getElementById('foot').textContent =
+  `Regler: kun long · maks 25% per eiendel før giring · giring etter risikoprofil (maks 10x) · 8% årlig rente på lånte penger · ` +
+  `gebyr 0,10% krypto / 0,05% aksjer · likvidert når egenkapital ≤ 5% av eksponering (sjekket mot dagens bunnkurs). Papirpenger – ikke ekte handel.`;
+</script>
+</body>
+</html>

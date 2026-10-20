@@ -1,0 +1,2 @@
+date,ai01_sma_cross,ai02_ema_cross,ai03_macd,ai04_rsi_reversion,ai05_bollinger_reversion,ai06_bollinger_breakout,ai07_donchian_turtle,ai08_tsmom,ai09_dual_momentum,ai10_vol_target_trend,ai11_keltner,ai12_stochastic,ai13_zscore,ai14_adx_trend,ai15_supertrend,ai16_ichimoku,ai17_obv_breakout,ai18_vol_breakout,ai19_ml_ridge,ai20_kalman_trend
+2026-10-20,499.4867500229377,499.2511233150275,499.375,500.0,499.9,499.375,499.625,499.2788396737228,499.8125,499.855253173219,499.375,499.8028391406629,500.0,499.375,498.0,499.7501249375312,499.625,498.125,498.18490599242887,500.0
