@@ -20,6 +20,7 @@ import paper
 
 from .engine import STEP_MINUTES, LiveEngine
 from .feeds import AlpacaFeed, SyntheticFeed
+from .news import NewsDesk, SyntheticNews
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
 log = logging.getLogger("server")
@@ -35,7 +36,15 @@ elif os.environ.get("ALPACA_API_KEY") and os.environ.get("ALPACA_SECRET_KEY"):
 else:
     feed = None
     status["last_error"] = "ALPACA_API_KEY / ALPACA_SECRET_KEY mangler i Environment-innstillingene."
-engine = LiveEngine(feed, os.environ.get("DATA_DIR", os.path.join(os.path.dirname(__file__), "..", "state_live")))
+data_dir = os.environ.get("DATA_DIR", os.path.join(os.path.dirname(__file__), "..", "state_live"))
+if os.environ.get("SYNTHETIC"):
+    news = SyntheticNews(paper.UNIVERSE, data_dir)
+elif feed is not None and os.environ.get("ANTHROPIC_API_KEY"):
+    import anthropic
+    news = NewsDesk(paper.UNIVERSE, data_dir, session=feed.session, client=anthropic.Anthropic())
+else:
+    news = None  # without an Anthropic key the news AIs simply don't join
+engine = LiveEngine(feed, data_dir, news)
 live = {"prices": {}, "t": None}
 
 
@@ -74,6 +83,8 @@ def start_threads():
         return
     threading.Thread(target=trading_loop, daemon=True).start()
     threading.Thread(target=price_loop, daemon=True).start()
+    if news is not None:
+        threading.Thread(target=news.run, daemon=True).start()
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -107,4 +118,6 @@ async def live_stream():
 @app.get("/health")
 def health():
     ok = status["last_error"] is None and engine.updated is not None
-    return JSONResponse({"ok": ok, **status}, status_code=200 if ok else 503)
+    news_status = None if news is None else {"ready": news.ready, "articles": len(news.items),
+                                             "error": news.error, "usd_spent": round(news.cost["usd"], 2)}
+    return JSONResponse({"ok": ok, **status, "news": news_status}, status_code=200 if ok else 503)

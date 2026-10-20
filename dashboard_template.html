@@ -10,7 +10,7 @@
   color-scheme: light;
   --bg: #f6f6f4; --surface: #fcfcfb; --border: #e4e3de; --grid: #ecebe7;
   --text: #0b0b0b; --text-2: #52514e; --muted: #807f79;
-  --p1: #2a78d6; --p2: #eb6834; --p3: #1baf7a; --p4: #eda100; --bench: #807f79;
+  --p1: #2a78d6; --p2: #eb6834; --p3: #1baf7a; --p4: #eda100; --p5: #e87ba4; --bench: #807f79;
   --up: #008300; --down: #e34948; --accent: #2a78d6;
 }
 @media (prefers-color-scheme: dark) {
@@ -18,7 +18,7 @@
     color-scheme: dark;
     --bg: #121211; --surface: #1a1a19; --border: #2e2e2c; --grid: #262624;
     --text: #f0efec; --text-2: #c3c2b7; --muted: #8f8e86;
-    --p1: #3987e5; --p2: #d95926; --p3: #199e70; --p4: #c98500; --bench: #8f8e86;
+    --p1: #3987e5; --p2: #d95926; --p3: #199e70; --p4: #c98500; --p5: #d55181; --bench: #8f8e86;
     --up: #3fb950; --down: #e66767; --accent: #3987e5;
   }
 }
@@ -26,7 +26,7 @@
   color-scheme: dark;
   --bg: #121211; --surface: #1a1a19; --border: #2e2e2c; --grid: #262624;
   --text: #f0efec; --text-2: #c3c2b7; --muted: #8f8e86;
-  --p1: #3987e5; --p2: #d95926; --p3: #199e70; --p4: #c98500; --bench: #8f8e86;
+  --p1: #3987e5; --p2: #d95926; --p3: #199e70; --p4: #c98500; --p5: #d55181; --bench: #8f8e86;
   --up: #3fb950; --down: #e66767; --accent: #3987e5;
 }
 * { box-sizing: border-box; }
@@ -110,7 +110,7 @@ footer { color: var(--muted); font-size: 12px; margin-top: 24px; }
     </div>
     <div class="card">
       <h2>Lønner giring seg?</h2>
-      <p class="muted" style="margin:-6px 0 10px;font-size:12px">Snitt saldo per risikoprofil (5 AI-er hver)</p>
+      <p class="muted" style="margin:-6px 0 10px;font-size:12px">Snitt saldo per risikoprofil</p>
       <div class="chart sm"><canvas id="profileChart" aria-label="Snitt saldo per risikoprofil"></canvas></div>
       <div class="tbl"><table id="profileTable"></table></div>
     </div>
@@ -119,6 +119,12 @@ footer { color: var(--muted); font-size: 12px; margin-top: 24px; }
   <div class="card" style="margin-bottom:16px">
     <h2>Poengtavle</h2>
     <div class="tbl"><table id="board"></table></div>
+  </div>
+
+  <div class="card" id="newsCard" style="margin-bottom:16px;display:none">
+    <div class="row"><h2 style="margin:0">📰 Nyhetene AI-ene leser</h2><div class="spacer"></div><span class="muted" id="newsMeta" style="font-size:12px"></span></div>
+    <p class="muted" style="margin:-4px 0 10px;font-size:12px">Claude vurderer hver nyhet: hvor positiv eller negativ den er for kursen, ganger hvor mye den betyr. Nyhets-AI-ene handler på summen, som blekner med halveringstid 12 timer.</p>
+    <div class="tbl scroll" style="max-height:420px"><table id="news"></table></div>
   </div>
 
   <div class="card" id="detail" style="margin-bottom:16px"></div>
@@ -162,7 +168,7 @@ const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;',
 if (D.demo) document.getElementById('demo').innerHTML =
   '<div class="demo">DEMO – syntetiske priser, ikke ekte marked</div>';
 document.getElementById('sub').textContent =
-  `20 selvlærende AI-er · $${D.startCash} hver · krypto 24/7 + aksjer når New York-børsen er åpen · opptil 10x giring på krypto · papirpenger · start ${D.start} UTC · oppdatert ${D.updated} UTC`;
+  `${D.leaderboard.length} selvlærende AI-er · $${D.startCash} hver · krypto 24/7 + aksjer når New York-børsen er åpen · opptil 10x giring på krypto · papirpenger · start ${D.start} UTC · oppdatert ${D.updated} UTC`;
 
 // ---------- KPIs ----------
 const lb = D.leaderboard;
@@ -174,8 +180,8 @@ const kpis = [
   ['Leder', usd(lb[0]['Equity $']), short(lb[0].AI) + ' · ' + pct(lb[0]['Return %'])],
   ['Sistemann', usd(lb[lb.length - 1]['Equity $']), short(lb[lb.length - 1].AI)],
   ['Benchmark', usd(bench), 'kjøp og hold alt, 1x'],
-  ['Slår markedet', lb.filter(r => r['Equity $'] > bench).length + ' / 20', 'AI-er over benchmark'],
-  ['Likvidert', dead.length + ' / 20', dead.map(r => short(r.AI)).join(', ') || 'ingen ennå'],
+  ['Slår markedet', lb.filter(r => r['Equity $'] > bench).length + ' / ' + lb.length, 'AI-er over benchmark'],
+  ['Likvidert', dead.length + ' / ' + lb.length, dead.map(r => short(r.AI)).join(', ') || 'ingen ennå'],
   ['Trades', nTrades.toLocaleString('no'), 'siden ' + D.start.slice(0, 10)],
 ];
 document.getElementById('kpis').innerHTML = kpis.map(([l, v, n]) =>
@@ -229,7 +235,7 @@ function highlight(ai) {
   equityChart.update('none');
 }
 document.getElementById('legend').innerHTML =
-  D.profiles.map((p, i) => `<span data-p="${i}"><i style="background:${PCOL(i)}"></i>${esc(p)}</span>`).join('') +
+  D.profiles.filter(p => lb.some(r => r.Profil === p)).map(p => [p, D.profiles.indexOf(p)]).map(([p, i]) => `<span data-p="${i}"><i style="background:${PCOL(i)}"></i>${esc(p)}</span>`).join('') +
   `<span data-p="b"><i class="dash"></i>Benchmark</span>`;
 document.querySelectorAll('#legend span').forEach(el => el.onclick = () => {
   const p = el.dataset.p;
@@ -250,12 +256,11 @@ document.getElementById('lin').onclick = () => setScale('linear');
 document.getElementById('log').onclick = () => setScale('logarithmic');
 
 // profile comparison
-const prof = D.profiles.map((p, i) => {
-  const rows = lb.filter(r => r.Profil === p);
+const prof = D.profiles.map((p, i) => ({ p, i, rows: lb.filter(r => r.Profil === p) })).filter(x => x.rows.length).map(({ p, i, rows }) => {
   const avg = rows.reduce((s, r) => s + r['Equity $'], 0) / rows.length;
   const best = rows.reduce((a, b) => a['Equity $'] > b['Equity $'] ? a : b);
   return { p, i, avg, best, dead: rows.filter(r => r.Status.startsWith('liquidated')).length,
-    lev: rows.reduce((s, r) => s + r['Snitt giring'], 0) / rows.length };
+    lev: rows.reduce((s, r) => s + r['Snitt giring'], 0) / rows.length, n: rows.length };
 });
 new Chart(document.getElementById('profileChart'), {
   type: 'bar',
@@ -266,9 +271,9 @@ new Chart(document.getElementById('profileChart'), {
     scales: { x: { grid: { display: false }, ticks: { font: { size: 11 } } }, y: { beginAtZero: true, ticks: { callback: v => '$' + v } } } },
 });
 document.getElementById('profileTable').innerHTML =
-  '<thead><tr><th>Profil</th><th class="num">Snitt</th><th class="num">Snitt giring</th><th class="num">Likvidert</th></tr></thead><tbody>' +
-  prof.map(x => `<tr data-ai="${x.best.AI}"><td><span class="pill"><i style="background:${PCOL(x.i)}"></i>${esc(x.p)}</span></td>
-    <td class="num">${usd(x.avg)}</td><td class="num">${x.lev.toFixed(1)}x</td><td class="num">${x.dead}/5</td></tr>`).join('') + '</tbody>';
+  '<thead><tr><th>Profil</th><th class="num">Snitt</th><th class="num">Snitt giring</th><th class="num">Ute</th></tr></thead><tbody>' +
+  prof.map(x => `<tr data-ai="${x.best.AI}"><td><span class="pill"><i style="background:${PCOL(x.i)}"></i>${esc(x.p)} (${x.n})</span></td>
+    <td class="num">${usd(x.avg)}</td><td class="num">${x.lev.toFixed(1)}x</td><td class="num">${x.dead}/${x.n}</td></tr>`).join('') + '</tbody>';
 
 // ---------- leaderboard ----------
 const cols = [
@@ -456,6 +461,16 @@ if (LIVE) {
     if (m.prices && Object.keys(m.prices).length) { renderTicker(m.prices, m.t, false); applyLive(m.prices); }
   };
   setInterval(() => { if (Date.now() - lastMsg > 15000) renderTicker(D.stepPrices, null, true); }, 5000);
+}
+
+if (D.news && D.news.length) {
+  document.getElementById('newsCard').style.display = '';
+  document.getElementById('newsMeta').textContent = `${D.news.length} siste · vurderinger hittil ca. $${(D.newsCost || 0).toFixed(2)}`;
+  document.getElementById('news').innerHTML = '<thead><tr><th>Tid (UTC)</th><th>Nyhet</th><th>Vurdering</th><th>Hvorfor</th></tr></thead><tbody>' +
+    D.news.map(n => `<tr style="cursor:default"><td>${esc(n.t)}</td>
+      <td style="white-space:normal;min-width:260px">${n.url ? `<a href="${esc(n.url)}" target="_blank" rel="noopener" style="color:inherit">${esc(n.headline)}</a>` : esc(n.headline)} <span class="muted">· ${esc(n.source)}</span></td>
+      <td>${Object.entries(n.scores).map(([t, v]) => `<span class="${cls(v)}">${t} ${v >= 0 ? '+' : ''}${v.toFixed(2)}</span>`).join('<br>')}</td>
+      <td class="muted" style="white-space:normal;min-width:220px">${esc(n.reason)}</td></tr>`).join('') + '</tbody>';
 }
 
 select(selected);

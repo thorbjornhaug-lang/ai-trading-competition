@@ -53,7 +53,8 @@ class Context:
         self.window_days = window_days
         self.tfs = sorted({tf for (_, tf) in signals}, key=TIMEFRAMES.get)
         self.borrow_per_step = BORROW_RATE * step_minutes / MINUTES_PER_YEAR
-        self.sig = {key: s[self.tickers].to_numpy(np.float32) for key, s in signals.items()}
+        arrays = {}  # the same frame used for several tempos (news AIs) shares one array
+        self.sig = {key: arrays.setdefault(id(s), s[self.tickers].to_numpy(np.float32)) for key, s in signals.items()}
         c = close[self.tickers].to_numpy(float)
         prev = np.vstack([c[:1], c[:-1]])
         self.close = c
@@ -175,7 +176,7 @@ def learn(ctx, ai, rules, i, now, max_lev, target_vol):
     best, best_score = current, base
     for tf in ctx.tfs:
         cand = dict(current, tf=tf)
-        if cand != current:
+        if cand != current and ctx.sig[(ai, tf)] is not ctx.sig[(ai, current["tf"])]:
             score, _ = shadow(ctx, ai, cand, banned, start, i, max_lev, target_vol)
             if score > best_score:
                 best, best_score = cand, score

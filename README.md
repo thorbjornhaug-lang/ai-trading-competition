@@ -57,3 +57,14 @@ Deploy (Railway, or any Docker host):
 3. Use the `Dockerfile` in this repo.
 
 Offline test: `SYNTHETIC=1 uvicorn live.server:app`
+
+## 📰 News AIs (`live/news.py`)
+
+Two extra competitors trade on the news instead of only on prices:
+
+- **ai21_news_reader** buys when the news about a ticker is clearly positive and sells when it fades.
+- **ai22_news_guard** follows the price trend, but goes to cash as soon as the news turns negative.
+
+Every few minutes the server pulls finance news for our tickers from Alpaca (the Benzinga feed). Claude (`claude-opus-5-5`, low effort) rates each article per ticker: sentiment from -1 to 1, times an impact from 0 to 1, plus a one-line reason. The ratings add up into a "news pressure" score per ticker that halves every 12 hours. Ratings are stored in `DATA_DIR/news.jsonl`, so nothing is rated twice.
+
+To turn them on, add `ANTHROPIC_API_KEY` to the server's environment. The two news AIs join the running competition with $500 each. On first start they rate about the last 31 days of news (capped at 3,000 articles). The dashboard and `/health` show what that has cost so far.

@@ -47,6 +47,7 @@ PROFILES = {
     "Moderat ≤3x": (3.0, 0.70),
     "Aggressiv ≤10x": (10.0, 1.50),
     "Degen 10x": (10.0, None),
+    "Nyhets-AI ≤3x": (3.0, 0.70),
 }
 RISK = {
     "ai04_rsi_reversion": "Forsiktig 1x", "ai05_bollinger_reversion": "Forsiktig 1x",
@@ -57,6 +58,7 @@ RISK = {
     "ai14_adx_trend": "Aggressiv ≤10x", "ai19_ml_ridge": "Aggressiv ≤10x",
     "ai06_bollinger_breakout": "Degen 10x", "ai11_keltner": "Degen 10x", "ai15_supertrend": "Degen 10x",
     "ai18_vol_breakout": "Degen 10x", "ai20_kalman_trend": "Degen 10x",
+    "ai21_news_reader": "Nyhets-AI ≤3x", "ai22_news_guard": "Nyhets-AI ≤3x",
 }
 
 
@@ -125,6 +127,21 @@ class Competition:
     def load(self):
         with open(self.state_path) as f:
             self.state = json.load(f)
+
+    def add_accounts(self, names, when):
+        """Let new AIs join a running competition with fresh $500 accounts."""
+        new = [n for n in names if n not in self.state["accounts"]]
+        for n in new:
+            self.state["accounts"][n] = {"cash": START_CASH, "units": {}, "status": "active", "interest": 0.0,
+                                         "fees": 0.0, "rules": json.loads(json.dumps(learning.DEFAULT_RULES)),
+                                         "peak": {}, "stopped": [], "joined": learning.stamp(when)}
+        for path in (self.equity_path, self.leverage_path):
+            if new and os.path.exists(path):
+                df = pd.read_csv(path, index_col=0)
+                for n in new:
+                    df[n] = np.nan
+                df.to_csv(path)
+        return new
 
     def save(self, equity_rows, lev_rows, trade_rows):
         with open(self.state_path, "w") as f:
@@ -263,11 +280,11 @@ def leaderboard(comp, close, step_minutes=60):
     last_px = close.loc[eq.index[-1]]
     rows = []
     for ai in eq.columns:
-        e = eq[ai]
+        e = eq[ai].dropna()
         r = e.pct_change().replace([np.inf, -np.inf], np.nan).dropna()
         acct = comp.state["accounts"][ai]
         hold = sorted(((u * last_px[t], t) for t, u in acct["units"].items()), reverse=True)
-        active_lev = lev[ai][lev[ai] > 0]
+        active_lev = lev[ai][lev[ai] > 0].dropna()
         rows.append({
             "AI": ai,
             "Profil": RISK[ai],
@@ -275,7 +292,7 @@ def leaderboard(comp, close, step_minutes=60):
             "Return %": 100 * (e.iloc[-1] / START_CASH - 1),
             "Max DD %": 100 * (e / e.cummax() - 1).min(),
             "Sharpe": r.mean() / r.std() * np.sqrt(learning.MINUTES_PER_YEAR / step_minutes) if len(r) > 48 and r.std() > 0 else np.nan,
-            "Giring nå": lev[ai].iloc[-1],
+            "Giring nå": float(np.nan_to_num(lev[ai].iloc[-1])),
             "Snitt giring": active_lev.mean() if len(active_lev) else 0.0,
             "Trades": int(((trades.ai == ai) & (trades.side != "LIQUIDATED")).sum()),
             "Tempo": learning.TF_NAMES[acct["rules"]["tf"]],
@@ -305,12 +322,12 @@ def write_markdown(lb, eq, bench, comp, path):
     beat = int((lb["Equity $"] > bench.iloc[-1]).sum())
     dead = int(lb.Status.str.startswith("liquidated").sum())
     text = (f"# 🏆 AI Trading Competition\n\n"
-            f"20 self-learning AIs · ${START_CASH:.0f} each · crypto + stocks · up to 10x leverage on crypto · paper money\n\n"
+            f"{len(lb)} self-learning AIs · ${START_CASH:.0f} each · crypto + stocks · up to 10x leverage on crypto · paper money\n\n"
             f"**Start:** {comp.state['start']} UTC · **Updated:** {learning.stamp(eq.index[-1])} UTC · "
             f"**Days:** {len(eq) / 24:.1f} · "
             f"**Liquidated:** {dead}\n\n"
             f"**Benchmark** (equal-weight buy & hold, no leverage): **${bench.iloc[-1]:,.2f}** "
-            f"→ {beat}/20 AIs ahead\n\n{header}{body}\n"
+            f"→ {beat}/{len(lb)} AIs ahead\n\n{header}{body}\n"
             f"Universe: {', '.join(UNIVERSE)}\n")
     with open(path, "w") as f:
         f.write(text)
@@ -336,9 +353,9 @@ def build_payload(lb, eq, lev, trades, bench, comp, close, demo):
         "risk": RISK,
         "universe": UNIVERSE,
         "dates": [learning.stamp(d) for d in eq.index[keep]],
-        "equity": {ai: [round(v, 2) for v in eq[ai].iloc[keep]] for ai in eq.columns},
-        "leverage": {ai: [round(v, 2) for v in lev[ai].iloc[keep]] for ai in lev.columns},
-        "benchmark": [round(v, 2) for v in bench.iloc[keep]],
+        "equity": {ai: [None if pd.isna(v) else round(v, 2) for v in eq[ai].iloc[keep]] for ai in eq.columns},
+        "leverage": {ai: [None if pd.isna(v) else round(v, 2) for v in lev[ai].iloc[keep]] for ai in lev.columns},
+        "benchmark": [None if pd.isna(v) else round(v, 2) for v in bench.iloc[keep]],
         "tfNames": learning.TF_NAMES,
         "leaderboard": json.loads(lb.to_json(orient="records")),
         "holdings": holdings,
