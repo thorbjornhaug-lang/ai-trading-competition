@@ -81,5 +81,68 @@ def fetch_yahoo(ticker: str, start: str = "2022-01-01") -> pd.DataFrame:
     df = df[["Open", "High", "Low", "Close", "Volume"]].rename(columns=str.lower)
     df.index = df.index.tz_localize(None).normalize()
     if ticker.endswith("-USD"):  # crypto: today's candle is still open
-        df = df[df.index < pd.Timestamp.utcnow().tz_localize(None).normalize()]
+        df = df[df.index < pd.Timestamp.now("UTC").tz_localize(None).normalize()]
     return df
+
+
+def _hourly_bars(df: pd.DataFrame, session_close: str | None) -> pd.DataFrame:
+    """Re-index raw hourly bars (labelled by start time) to the UTC hour at which each bar has closed."""
+    end = df.index + pd.Timedelta(hours=1)
+    if session_close:  # the last stock bar of the day is short (15:30-16:00 New York)
+        local = end.tz_convert("America/New_York")
+        cap = local.normalize() + pd.Timedelta(session_close)
+        end = pd.DatetimeIndex(np.minimum(local, cap)).tz_convert("UTC")
+    df = df.copy()
+    df.index = end.tz_convert("UTC").ceil("h").tz_localize(None)
+    df = df[df.index <= pd.Timestamp.now("UTC").tz_localize(None)]  # drop the bar that is still forming
+    return df.groupby(level=0).agg({"open": "first", "high": "max", "low": "min", "close": "last", "volume": "sum"})
+
+
+def fetch_yahoo_hourly(ticker: str, days: int = 729) -> pd.DataFrame:
+    """Hourly OHLCV from Yahoo (max ~730 days), indexed by the UTC hour each bar closed."""
+    import yfinance as yf
+    start = (pd.Timestamp.now("UTC") - pd.Timedelta(days=days)).strftime("%Y-%m-%d")
+    df = yf.Ticker(ticker).history(start=start, interval="1h", auto_adjust=True)
+    if df.empty:
+        raise ValueError(f"no hourly data for {ticker}")
+    df = df[["Open", "High", "Low", "Close", "Volume"]].rename(columns=str.lower)
+    return _hourly_bars(df, None if ticker.endswith("-USD") else "16:00")
+
+
+def synthetic_hourly(symbol: str, days: int = 729, stock: bool = False) -> pd.DataFrame:
+    """Synthetic hourly bars; stocks only trade 14:00-20:00 UTC on weekdays."""
+    rng = np.random.default_rng(zlib.crc32(symbol.encode()))
+    end = pd.Timestamp.now("UTC").tz_localize(None).floor("h")
+    idx = pd.date_range(end=end, periods=days * 24, freq="h")
+    if stock:
+        idx = idx[(idx.dayofweek < 5) & (idx.hour >= 14) & (idx.hour <= 20)]
+    per_day = 7 if stock else 24
+    regimes = {0: (0.0025, 0.035), 1: (-0.002, 0.045), 2: (0.0, 0.025)}
+    state, rets, vols = 2, [], []
+    for _ in range(len(idx)):
+        if rng.random() < 1 / (60 * per_day):
+            state = int(rng.choice([s for s in regimes if s != state]))
+        mu, sig = regimes[state]
+        mu, sig = mu / per_day, sig / np.sqrt(per_day)
+        rets.append(mu + sig * rng.standard_t(4) / np.sqrt(2))
+        vols.append(sig)
+    close = 100 * np.exp(np.cumsum(rets))
+    open_ = np.r_[close[0], close[:-1]]
+    spread = np.abs(rng.normal(0, np.array(vols) / 2)) * close
+    return pd.DataFrame({"open": open_, "high": np.maximum(open_, close) + spread,
+                         "low": np.minimum(open_, close) - spread, "close": close,
+                         "volume": rng.lognormal(8, 0.4, len(idx))}, index=idx)
+
+
+def resample_bars(df: pd.DataFrame, rule: str) -> pd.DataFrame:
+    """Aggregate close-labelled hourly bars into 4h / daily bars labelled at their scheduled close,
+    so a bar's signal only exists once the whole bar is finished."""
+    if rule == "1h":
+        return df
+    key = df.index.floor(rule) if rule != "1D" else df.index.floor("D")
+    # an hourly bar labelled exactly on a boundary belongs to the bar that ends there
+    on_edge = df.index == key
+    key = key.where(~on_edge, key - pd.Timedelta(rule if rule != "1D" else "1D"))
+    out = df.groupby(key).agg({"open": "first", "high": "max", "low": "min", "close": "last", "volume": "sum"})
+    out.index = out.index + pd.Timedelta(rule if rule != "1D" else "1D")
+    return out

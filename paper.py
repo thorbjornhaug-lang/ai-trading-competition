@@ -1,12 +1,14 @@
 """Paper-trading competition: 20 AIs, $500 each, trading crypto and stocks on virtual margin accounts.
 
-    python paper.py                         # daily run: process new bars, trade, update LEADERBOARD.md + docs/index.html
-    python paper.py --reset                 # start a fresh competition today
-    python paper.py --reset --start 2026-01-02   # replay from a past date, then keep going live
-    python paper.py --offline --reset --start 2026-01-02   # synthetic data, separate state folder
+    python paper.py                         # hourly run: process new hours, trade, update LEADERBOARD.md + docs/index.html
+    python paper.py --reset                 # start a fresh competition now
+    python paper.py --reset --start "2026-10-01 14:00"   # replay from a past hour (UTC), then keep going live
+    python paper.py --offline --reset --start 2026-09-01  # synthetic data, separate state folder
 
 Rules
-- Long only. Signals use closed bars only; a signal from bar t is traded at the close of the asset's next bar.
+- Runs every hour. Crypto trades 24/7; stocks only while the New York market is open.
+- Each AI picks its own tempo (1h, 4h or daily bars) and changes it when learning says so.
+- Long only. Signals use closed bars only; a signal from hour t is traded at the asset's next hourly price.
 - Base weights: signal / max(sum of signals, 4)  ->  max 25% of the book per asset.
 - Leverage on crypto only (stocks max 1x). Each AI has a risk profile (see RISK) capping its leverage at 1x, 3x or 10x;
   leverage = target_vol / portfolio_vol (or always max), scaled by the AI's own learned lev_mult.
@@ -35,7 +37,8 @@ START_CASH = 500.0
 REBAL_BAND = 0.03     # skip trades smaller than 3% of equity x leverage (avoids fee churn)
 BORROW_RATE = learning.BORROW_RATE
 MAINT_MARGIN = learning.MAINT_MARGIN
-HISTORY_START = "2022-01-01"
+MAX_CHART_POINTS = 2000
+HISTORY_DAYS = 729   # Yahoo serves ~730 days of hourly bars
 
 # profile: (max leverage, target annual volatility or None = always max leverage)
 PROFILES = {
@@ -56,39 +59,43 @@ RISK = {
 }
 
 
-def load_prices(offline):
+def load_prices(offline, days=HISTORY_DAYS):
     dfs = {}
     for t, kind in UNIVERSE.items():
         if offline:
-            dfs[t] = data.synthetic(t, days=1500, freq="D" if kind == "crypto" else "B")
-        else:
-            for attempt in range(3):
-                try:
-                    dfs[t] = data.fetch_yahoo(t, HISTORY_START)
-                    break
-                except Exception:
-                    if attempt == 2:
-                        raise
-                    time.sleep(10 * (attempt + 1))
+            dfs[t] = data.synthetic_hourly(t, days=days, stock=kind == "stock")
+            continue
+        for attempt in range(3):
+            try:
+                dfs[t] = data.fetch_yahoo_hourly(t, days)
+                break
+            except Exception:
+                if attempt == 2:
+                    raise
+                time.sleep(10 * (attempt + 1))
     return dfs
 
 
 def build_signals(dfs, calendar):
-    """signals[ai] = DataFrame(calendar x ticker) of target exposure in [0, 1], decided at that bar's close."""
+    """signals[(ai, tf)] = DataFrame(hour x ticker) of target exposure in [0, 1] from that AI's strategy
+    run on tf-sized bars; a bar's signal appears at the hour the bar closes."""
+    bars = {(t, tf): data.resample_bars(df, tf) for t, df in dfs.items() for tf in learning.TIMEFRAMES}
     out = {}
     for name, fn in AIS.items():
-        cols = {t: fn(df).fillna(0).clip(0, 1) for t, df in dfs.items()}
-        out[name] = pd.DataFrame(cols).reindex(calendar).ffill().fillna(0)
+        for tf in learning.TIMEFRAMES:
+            cols = {t: fn(bars[(t, tf)]).fillna(0).clip(0, 1).reindex(calendar, method="ffill") for t in dfs}
+            out[(name, tf)] = pd.DataFrame(cols).fillna(0)
     return out
 
 
 def build_vol(dfs, calendar):
-    """Annualised 30-bar volatility per asset, on each asset's own trading calendar."""
+    """Annualised 30-day volatility per asset from daily bars, known at each day's close."""
     cols = {}
     for t, df in dfs.items():
         n = 365 if UNIVERSE[t] == "crypto" else 252
-        cols[t] = df.close.pct_change().rolling(30).std() * np.sqrt(n)
-    return pd.DataFrame(cols).reindex(calendar).ffill()
+        daily = data.resample_bars(df, "1D").close
+        cols[t] = (daily.pct_change().rolling(30).std() * np.sqrt(n)).reindex(calendar, method="ffill")
+    return pd.DataFrame(cols)
 
 
 class Competition:
@@ -105,9 +112,9 @@ class Competition:
             if os.path.exists(p):
                 os.remove(p)
         self.state = {
-            "start": str(start.date()),
-            "last_date": str((start - pd.Timedelta(days=1)).date()),
-            "last_learn": str(start.date()),
+            "start": learning.stamp(start),
+            "last_date": learning.stamp(start - pd.Timedelta(hours=1)),
+            "last_learn": learning.stamp(start - pd.Timedelta(days=learning.LEARN_EVERY_DAYS)),
             "journal": [],
             "accounts": {ai: {"cash": START_CASH, "units": {}, "status": "active", "interest": 0.0, "fees": 0.0,
                               "rules": json.loads(json.dumps(learning.DEFAULT_RULES)), "peak": {}, "stopped": []}
@@ -130,12 +137,12 @@ class Competition:
 
     def step(self, i, date, close, low, fresh, ctx):
         """Process calendar day i for every account. Returns (equity row, leverage row, trades)."""
-        eq_row, lev_row, trades = {"date": date.date()}, {"date": date.date()}, []
+        today = learning.stamp(date)
+        eq_row, lev_row, trades = {"date": today}, {"date": today}, []
         px, lo = close.loc[date], low.loc[date]
-        today = str(date.date())
 
         def log(ai, t, side, usd, price=0.0, fee=0.0, lev=0.0, note=""):
-            trades.append({"date": date.date(), "ai": ai, "ticker": t, "side": side, "usd": round(usd, 2),
+            trades.append({"date": today, "ai": ai, "ticker": t, "side": side, "usd": round(usd, 2),
                            "price": round(price, 6), "fee": round(fee, 4), "leverage": round(lev, 2), "note": note})
 
         for ai, acct in self.state["accounts"].items():
@@ -144,8 +151,8 @@ class Competition:
                 continue
             units, rules = acct["units"], acct["rules"]
 
-            if acct["cash"] < 0:  # interest on borrowed cash, per calendar day
-                interest = -acct["cash"] * BORROW_RATE / 365
+            if acct["cash"] < 0:  # interest on borrowed cash, per hour
+                interest = -acct["cash"] * BORROW_RATE / learning.HOURS_PER_YEAR
                 acct["cash"] -= interest
                 acct["interest"] += interest
 
@@ -171,7 +178,7 @@ class Competition:
             if i == 0:
                 w, lev = np.zeros(len(ctx.tickers)), 0.0
             else:
-                raw = ctx.sig[ai][i - 1]
+                raw = ctx.sig[(ai, rules["tf"])][i - 1]
                 acct["stopped"] = [t for t in acct["stopped"] if raw[ctx.tickers.index(t)] > 0]
                 stopped = np.array([t in acct["stopped"] for t in ctx.tickers])
                 banned = learning.banned_mask(ctx, rules["bans"], today)
@@ -221,8 +228,8 @@ class Competition:
 
     def learn(self, i, date, ctx):
         """Weekly: every active AI reviews its own recent results and rewrites its rules."""
-        today = str(date.date())
-        if (date - pd.Timestamp(self.state["last_learn"])).days < learning.LEARN_EVERY:
+        today = learning.stamp(date)
+        if date - pd.Timestamp(self.state["last_learn"]) < pd.Timedelta(days=learning.LEARN_EVERY_DAYS):
             return
         self.state["last_learn"] = today
         for ai, acct in self.state["accounts"].items():
@@ -237,9 +244,9 @@ class Competition:
 
 
 def rules_text(rules, date):
-    parts = [f"giring {rules['lev_mult']:.0%}"]
+    parts = [rules["tf"], f"giring {rules['lev_mult']:.0%}"]
     if rules["confirm"]:
-        parts.append(f"bekreft {rules['confirm']}d")
+        parts.append(f"bekreft {rules['confirm']}")
     if rules["stop"]:
         parts.append(f"stop {rules['stop']:.0%}")
     bans = [t for t, until in rules["bans"].items() if until > date]
@@ -266,10 +273,11 @@ def leaderboard(comp, close):
             "Equity $": e.iloc[-1],
             "Return %": 100 * (e.iloc[-1] / START_CASH - 1),
             "Max DD %": 100 * (e / e.cummax() - 1).min(),
-            "Sharpe": r.mean() / r.std() * np.sqrt(365) if len(r) > 20 and r.std() > 0 else np.nan,
+            "Sharpe": r.mean() / r.std() * np.sqrt(learning.HOURS_PER_YEAR) if len(r) > 48 and r.std() > 0 else np.nan,
             "Giring nå": lev[ai].iloc[-1],
             "Snitt giring": active_lev.mean() if len(active_lev) else 0.0,
             "Trades": int(((trades.ai == ai) & (trades.side != "LIQUIDATED")).sum()),
+            "Tempo": learning.TF_NAMES[acct["rules"]["tf"]],
             "Status": acct["status"],
             "Regler": rules_text(acct["rules"], comp.state["last_date"]),
             "Lærte": sum(1 for j in comp.state["journal"] if j["ai"] == ai),
@@ -297,7 +305,8 @@ def write_markdown(lb, eq, bench, comp, path):
     dead = int(lb.Status.str.startswith("liquidated").sum())
     text = (f"# 🏆 AI Trading Competition\n\n"
             f"20 self-learning AIs · ${START_CASH:.0f} each · crypto + stocks · up to 10x leverage on crypto · paper money\n\n"
-            f"**Start:** {comp.state['start']} · **Updated:** {eq.index[-1].date()} · **Days:** {len(eq)} · "
+            f"**Start:** {comp.state['start']} UTC · **Updated:** {learning.stamp(eq.index[-1])} UTC · "
+            f"**Days:** {len(eq) / 24:.1f} · "
             f"**Liquidated:** {dead}\n\n"
             f"**Benchmark** (equal-weight buy & hold, no leverage): **${bench.iloc[-1]:,.2f}** "
             f"→ {beat}/20 AIs ahead\n\n{header}{body}\n"
@@ -315,18 +324,21 @@ def write_dashboard(lb, eq, lev, trades, bench, comp, close, path, demo):
     accounts = {ai: {k: round(v, 2) if isinstance(v, float) else v for k, v in acct.items()
                      if k in ("cash", "status", "interest", "fees")}
                 for ai, acct in comp.state["accounts"].items()}
+    step = max(1, -(-len(eq) // MAX_CHART_POINTS))  # thin the hourly series for the charts
+    keep = sorted(set(range(len(eq) - 1, -1, -step)))
     payload = {
         "demo": demo,
         "start": comp.state["start"],
-        "updated": str(eq.index[-1].date()),
+        "updated": learning.stamp(eq.index[-1]),
         "startCash": START_CASH,
         "profiles": list(PROFILES),
         "risk": RISK,
         "universe": UNIVERSE,
-        "dates": [str(d.date()) for d in eq.index],
-        "equity": {ai: [round(v, 2) for v in eq[ai]] for ai in eq.columns},
-        "leverage": {ai: [round(v, 2) for v in lev[ai]] for ai in lev.columns},
-        "benchmark": [round(v, 2) for v in bench],
+        "dates": [learning.stamp(d) for d in eq.index[keep]],
+        "equity": {ai: [round(v, 2) for v in eq[ai].iloc[keep]] for ai in eq.columns},
+        "leverage": {ai: [round(v, 2) for v in lev[ai].iloc[keep]] for ai in lev.columns},
+        "benchmark": [round(v, 2) for v in bench.iloc[keep]],
+        "tfNames": learning.TF_NAMES,
         "leaderboard": json.loads(lb.to_json(orient="records")),
         "holdings": holdings,
         "accounts": accounts,
@@ -347,14 +359,15 @@ def write_dashboard(lb, eq, lev, trades, bench, comp, close, path, demo):
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--reset", action="store_true", help="start a new competition (wipes state)")
-    p.add_argument("--start", help="competition start date for --reset (default: latest bar)")
+    p.add_argument("--start", help="competition start (UTC) for --reset (default: latest hour)")
     p.add_argument("--offline", action="store_true", help="synthetic data, state in state_offline/")
+    p.add_argument("--days", type=int, default=HISTORY_DAYS, help="days of hourly history to load")
     args = p.parse_args()
 
     root = os.path.dirname(os.path.abspath(__file__))
     comp = Competition(os.path.join(root, "state_offline" if args.offline else "state"))
 
-    dfs = load_prices(args.offline)
+    dfs = load_prices(args.offline, args.days)
     calendar = pd.DatetimeIndex(sorted(set().union(*(df.index for df in dfs.values()))))
     close = pd.DataFrame({t: df.close for t, df in dfs.items()}).reindex(calendar)
     fresh = close.notna()
@@ -383,9 +396,9 @@ def main():
         lev_rows.append(l)
         trade_rows.extend(t)
     if len(todo):
-        comp.state["last_date"] = str(todo[-1].date())
+        comp.state["last_date"] = learning.stamp(todo[-1])
     comp.save(equity_rows, lev_rows, trade_rows)
-    print(f"Processed {len(todo)} new day(s), {len(trade_rows)} trade(s).")
+    print(f"Processed {len(todo)} new hour(s), {len(trade_rows)} trade(s).")
 
     if not os.path.exists(comp.equity_path):
         return

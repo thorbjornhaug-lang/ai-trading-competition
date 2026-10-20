@@ -119,7 +119,7 @@ footer { color: var(--muted); font-size: 12px; margin-top: 24px; }
       <h2 style="margin:0">🧠 Læringslogg</h2><div class="spacer"></div>
       <select id="fLearn"><option value="">Alle AI-er</option></select>
     </div>
-    <p class="muted" style="margin:-4px 0 10px;font-size:12px">Hver uke går hver AI gjennom egne siste 120 dager, finner hva som tapte penger og skriver om egne regler. Den bytter bare når de nye reglene ville gjort det klart bedre.</p>
+    <p class="muted" style="margin:-4px 0 10px;font-size:12px">Ved start og deretter hver uke går hver AI gjennom egne siste 120 dager time for time, finner hva som tapte penger og skriver om egne regler. Den bytter bare når de nye reglene ville gjort det klart bedre.</p>
     <div class="scroll" style="max-height:420px" id="journal"></div>
   </div>
 
@@ -152,7 +152,7 @@ const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;',
 if (D.demo) document.getElementById('demo').innerHTML =
   '<div class="demo">DEMO – syntetiske priser, ikke ekte marked</div>';
 document.getElementById('sub').textContent =
-  `20 selvlærende AI-er · $${D.startCash} hver · krypto + aksjer · opptil 10x giring på krypto · papirpenger · start ${D.start} · oppdatert ${D.updated}`;
+  `20 selvlærende AI-er · $${D.startCash} hver · krypto 24/7 + aksjer når New York-børsen er åpen · opptil 10x giring på krypto · papirpenger · start ${D.start} UTC · oppdatert ${D.updated} UTC`;
 
 // ---------- KPIs ----------
 const lb = D.leaderboard;
@@ -165,7 +165,7 @@ const kpis = [
   ['Benchmark', usd(bench), 'kjøp og hold alt, 1x'],
   ['Slår markedet', lb.filter(r => r['Equity $'] > bench).length + ' / 20', 'AI-er over benchmark'],
   ['Likvidert', dead.length + ' / 20', dead.map(r => short(r.AI)).join(', ') || 'ingen ennå'],
-  ['Trades', nTrades.toLocaleString('no'), D.dates.length + ' dager'],
+  ['Trades', nTrades.toLocaleString('no'), 'siden ' + D.start.slice(0, 10)],
 ];
 document.getElementById('kpis').innerHTML = kpis.map(([l, v, n]) =>
   `<div class="card kpi"><div class="label">${l}</div><div class="value">${v}</div><div class="note" title="${esc(n)}">${esc(n)}</div></div>`).join('');
@@ -269,6 +269,7 @@ const cols = [
   ['Giring nå', r => r['Giring nå'], r => r['Giring nå'].toFixed(1) + 'x', 'num'],
   ['Snitt giring', r => r['Snitt giring'], r => r['Snitt giring'].toFixed(1) + 'x', 'num'],
   ['Trades', r => r.Trades, r => r.Trades, 'num'],
+  ['Tempo', r => r.Tempo, r => esc(r.Tempo)],
   ['Regler', r => r.Regler, r => `<span class="muted">${esc(r.Regler)}</span>`],
   ['Lært', r => r['Lærte'], r => r['Lærte'], 'num'],
   ['Status', r => r.Status, r => r.Status === 'active' ? '<span class="muted">aktiv</span>' : `<span class="dead">💀 ${esc(r.Status.replace('liquidated', 'likvidert'))}</span>`],
@@ -345,7 +346,7 @@ function select(ai) {
 // ---------- trades ----------
 const T = D.tradeCols.reduce((o, c, i) => (o[c] = i, o), {});
 function tradeHead() {
-  return '<thead><tr><th>Dato</th><th>AI</th><th>Eiendel</th><th>Side</th><th class="num">Beløp</th><th class="num">Pris</th><th class="num">Gebyr</th><th class="num">Giring</th><th>Årsak</th></tr></thead>';
+  return '<thead><tr><th>Tid (UTC)</th><th>AI</th><th>Eiendel</th><th>Side</th><th class="num">Beløp</th><th class="num">Pris</th><th class="num">Gebyr</th><th class="num">Giring</th><th>Årsak</th></tr></thead>';
 }
 function tradeRow(t) {
   const side = t[T.side];
@@ -370,17 +371,17 @@ document.getElementById('more').onclick = () => { shown += 500; renderTrades(); 
 
 function rulePills(ai) {
   const r = D.rules[ai], maxLev = { 'Forsiktig 1x': 1, 'Moderat ≤3x': 3, 'Aggressiv ≤10x': 10, 'Degen 10x': 10 }[D.risk[ai]];
-  const p = [maxLev > 1 ? `Giring: ${Math.round(r.lev_mult * 100)}% (maks ${Math.min(maxLev, maxLev * r.lev_mult).toFixed(1)}x krypto)` : `Størrelse: ${Math.round(r.lev_mult * 100)}%`,
-    r.confirm ? `Venter ${r.confirm} dager på bekreftelse` : 'Kjøper med en gang',
+  const p = [`Handler ${D.tfNames[r.tf]}`, maxLev > 1 ? `Giring: ${Math.round(r.lev_mult * 100)}% (maks ${Math.min(maxLev, maxLev * r.lev_mult).toFixed(1)}x krypto)` : `Størrelse: ${Math.round(r.lev_mult * 100)}%`,
+    r.confirm ? `Venter ${r.confirm} candles på bekreftelse` : 'Kjøper med en gang',
     r.stop ? `Stop-loss ${Math.round(r.stop * 100)}%` : 'Ingen stop-loss'];
   Object.entries(r.bans).filter(([, u]) => u > D.updated).forEach(([t, u]) => p.push(`Pause ${t} til ${u}`));
   return p.map(x => `<span>${esc(x)}</span>`).join('');
 }
 function journalHtml(rows) {
-  if (!rows.length) return '<p class="muted">Ingen regelendringer ennå – første læring skjer etter 7 dager.</p>';
-  return '<table><thead><tr><th>Dato</th><th>AI</th><th>Hva den lærte</th><th class="num">Test-score</th></tr></thead><tbody>' +
+  if (!rows.length) return '<p class="muted">Ingen regelendringer ennå.</p>';
+  return '<table><thead><tr><th>Tid (UTC)</th><th>AI</th><th>Hva den lærte</th><th class="num">Test-score</th></tr></thead><tbody>' +
     [...rows].reverse().map(j => `<tr data-ai="${j.ai}"><td>${j.date}</td><td>${esc(short(j.ai))}</td>
-      <td style="white-space:normal">${j.changes.map(esc).join('<br>')}</td>
+      <td style="white-space:normal;min-width:260px">${j.changes.map(esc).join('<br>')}</td>
       <td class="num">${j.score_before.toFixed(2)} → <span class="${cls(j.score_after - j.score_before)}">${j.score_after.toFixed(2)}</span></td></tr>`).join('') + '</tbody></table>';
 }
 const fLearn = document.getElementById('fLearn');
@@ -395,7 +396,7 @@ select(selected);
 renderJournal();
 renderTrades();
 document.getElementById('foot').textContent =
-  `Regler: kun long · maks 25% per eiendel før giring · giring kun på krypto, maks etter risikoprofil (1x/3x/10x) · aksjer maks 1x · hver AI lærer ukentlig av egne siste 120 dager og skriver om egne regler · 8% årlig rente på lånte penger · ` +
+  `Regler: kjører hver time · hver AI velger selv tempo (hver time / hver 4. time / daglig) · kun long · maks 25% per eiendel før giring · giring kun på krypto, maks etter risikoprofil (1x/3x/10x) · aksjer maks 1x · hver AI lærer ukentlig av egne siste 120 dager og skriver om egne regler · 8% årlig rente på lånte penger · ` +
   `gebyr 0,10% krypto / 0,05% aksjer · likvidert når egenkapital ≤ 5% av eksponering (sjekket mot dagens bunnkurs). Papirpenger – ikke ekte handel.`;
 </script>
 </body>
