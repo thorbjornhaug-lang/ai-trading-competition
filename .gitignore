@@ -1,3 +1,5 @@
 cache/
 results/
 __pycache__/
+state_offline/
+LEADERBOARD_offline.md

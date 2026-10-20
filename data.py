@@ -3,6 +3,7 @@ import json
 import os
 import time
 import urllib.request
+import zlib
 
 import numpy as np
 import pandas as pd
@@ -32,9 +33,9 @@ def fetch_binance(symbol: str, interval: str = "1d", start: str = "2019-01-01") 
     return df.iloc[:-1]  # drop the still-open candle
 
 
-def synthetic(symbol: str, days: int = 2200, seed: int | None = None) -> pd.DataFrame:
+def synthetic(symbol: str, days: int = 2200, seed: int | None = None, freq: str = "D") -> pd.DataFrame:
     """Regime-switching fat-tailed price series (bull / bear / chop) for offline testing."""
-    rng = np.random.default_rng(seed if seed is not None else abs(hash(symbol)) % 2**32)
+    rng = np.random.default_rng(seed if seed is not None else zlib.crc32(symbol.encode()))
     regimes = {0: (0.0025, 0.035), 1: (-0.002, 0.045), 2: (0.0, 0.025)}
     state, rets, vols = 2, [], []
     for _ in range(days):
@@ -50,7 +51,7 @@ def synthetic(symbol: str, days: int = 2200, seed: int | None = None) -> pd.Data
     high = np.maximum(open_, close) + spread
     low = np.minimum(open_, close) - spread
     volume = rng.lognormal(10, 0.4, days) * (1 + 20 * np.abs(rets))
-    idx = pd.date_range(end=pd.Timestamp.today().normalize(), periods=days, freq="D")
+    idx = pd.date_range(end=pd.Timestamp.today().normalize(), periods=days, freq=freq)
     return pd.DataFrame({"open": open_, "high": high, "low": low, "close": close, "volume": volume}, index=idx)
 
 
@@ -69,3 +70,16 @@ def load(symbol: str, interval: str = "1d", refresh: bool = False, offline: bool
     except Exception as e:  # network blocked, symbol missing, etc.
         print(f"  ! {symbol}: Binance unavailable ({e.__class__.__name__}), using synthetic data")
         return synthetic(symbol), "synthetic"
+
+
+def fetch_yahoo(ticker: str, start: str = "2022-01-01") -> pd.DataFrame:
+    """Daily OHLCV for stocks/ETFs/crypto from Yahoo Finance, e.g. 'NVDA' or 'BTC-USD'."""
+    import yfinance as yf
+    df = yf.Ticker(ticker).history(start=start, auto_adjust=True)
+    if df.empty:
+        raise ValueError(f"no data for {ticker}")
+    df = df[["Open", "High", "Low", "Close", "Volume"]].rename(columns=str.lower)
+    df.index = df.index.tz_localize(None).normalize()
+    if ticker.endswith("-USD"):  # crypto: today's candle is still open
+        df = df[df.index < pd.Timestamp.utcnow().tz_localize(None).normalize()]
+    return df

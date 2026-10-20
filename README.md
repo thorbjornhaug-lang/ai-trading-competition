@@ -17,3 +17,17 @@ The Council picks its top 5 using only in-sample data, so its out-of-sample resu
 If an AI doesn't beat BUY&HOLD on Sharpe on at least 3 of 4 assets, delete it.
 
 Paper-trade only until 3+ months of live signals match the backtest.
+
+## 🏆 Paper-trading competition (`paper.py`)
+
+20 AIs, $500 virtual each, trading 4 cryptos (BTC, ETH, SOL, XRP) and 6 stocks/ETFs (SPY, QQQ, NVDA, AAPL, MSFT, TSLA).
+Each AI trades only its own strategy. Long only, max 25% per asset, real fees, and a signal is traded on the next bar (no look-ahead).
+
+```bash
+python paper.py --reset            # start the competition today
+python paper.py                    # run daily: trades new bars, updates LEADERBOARD.md
+python paper.py --reset --start 2026-01-02   # replay from a past date, then continue live
+```
+
+State lives in `state/` (accounts, equity curve, every trade). Push this repo to GitHub and
+`.github/workflows/daily.yml` runs it automatically every weekday after the US close and commits the leaderboard.
